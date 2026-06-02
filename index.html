@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0a0f1e">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Riego Dashboard">
 <link rel="apple-touch-icon" href="icon-192.jpg">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -26,14 +26,26 @@ html{scroll-behavior:smooth}
   --text:#e2e8f0; --text2:#94a3b8; --text3:#64748b; --text4:#475569;
   --mono:'JetBrains Mono',monospace; --sans:'Inter',sans-serif;
   --r:8px; --shadow:0 1px 3px rgba(0,0,0,.4),0 1px 2px rgba(0,0,0,.3);
+  /* iOS safe area */
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
 }
 
-body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh;
+  /* Respetar barra de notificaciones iOS */
+  padding-top:env(safe-area-inset-top, 0px);
+  padding-left:env(safe-area-inset-left, 0px);
+  padding-right:env(safe-area-inset-right, 0px);
+}
 
 /* ─── UPLOAD ─── */
 #upload-screen{
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-height:100vh;padding:2rem;
+  min-height:100vh;
+  padding:2rem;
+  padding-top:max(2rem, calc(env(safe-area-inset-top, 0px) + 1rem));
   background:radial-gradient(ellipse 80% 60% at 50% 20%,#0d2040 0%,var(--bg) 70%)
 }
 .up-logo{font-family:var(--mono);font-size:1.1rem;font-weight:500;color:var(--blue);
@@ -68,7 +80,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .btn-primary:hover{background:#2563eb}
 
 /* ─── LOADING ─── */
-#loading{display:none;position:fixed;inset:0;background:rgba(10,15,30,.88);z-index:999;
+#loading{display:none;position:fixed;inset:0;padding-top:env(safe-area-inset-top,0px);background:rgba(10,15,30,.88);z-index:999;
   align-items:center;justify-content:center;flex-direction:column;gap:.8rem}
 .spinner{width:32px;height:32px;border:2.5px solid var(--border2);
   border-top-color:var(--blue);border-radius:50%;animation:spin .65s linear infinite}
@@ -83,6 +95,14 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
   background:var(--surface);border-bottom:1px solid var(--border);
   padding:.55rem 1rem;display:flex;align-items:center;justify-content:space-between;
   gap:.5rem;position:sticky;top:0;z-index:200
+}
+/* iOS: el topbar sticky también necesita safe area cuando
+   la barra de estado es translúcida y el body tiene padding */
+@supports(padding-top: env(safe-area-inset-top)){
+  .topbar{
+    /* Añade el safe area al padding existente */
+    padding-top:max(.55rem, env(safe-area-inset-top, .55rem));
+  }
 }
 .topbar-brand{font-family:var(--mono);font-size:.78rem;font-weight:500;color:var(--blue)}
 #data-info{font-size:.68rem;color:var(--text4);font-family:var(--mono)}
@@ -136,6 +156,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
   position:fixed;left:0;right:0;bottom:0;z-index:301;
   background:var(--surface);border-top:1px solid var(--border);
   border-radius:16px 16px 0 0;padding:1rem;
+  padding-bottom:max(1rem, env(safe-area-inset-bottom, 1rem));
   display:flex;flex-direction:column;gap:.75rem;
   max-height:85vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
   transform:translateY(100%);transition:transform .28s cubic-bezier(.4,0,.2,1)
@@ -184,7 +205,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 }
 .ms-dropdown.open{display:block}
 @media(max-width:700px){
-  .ms-dropdown{position:fixed;left:1rem;right:1rem;top:auto;bottom:1rem;
+  .ms-dropdown{position:fixed;left:1rem;right:1rem;top:auto;
+    bottom:max(1rem, env(safe-area-inset-bottom, 1rem));
     max-width:none;border-radius:12px;
     box-shadow:0 -4px 32px rgba(0,0,0,.5);z-index:600}
   .ms-list{max-height:240px}
@@ -410,7 +432,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 
 /* ── Update notification banner ── */
 #update-banner{
-  display:none;position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);
+  display:none;position:fixed;bottom:max(1.2rem, env(safe-area-inset-bottom, 1.2rem));left:50%;transform:translateX(-50%);
   background:#1e3a5f;border:1.5px solid #38bdf8;
   border-radius:12px;font-family:var(--sans);z-index:9999;
   box-shadow:0 8px 32px rgba(0,0,0,.6);
