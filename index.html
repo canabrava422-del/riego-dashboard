@@ -357,7 +357,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
   border:1px solid var(--border);background:var(--surface2);color:var(--text4);white-space:nowrap}
 .hmt th.rh{text-align:left;min-width:48px}
 .hmt td{padding:.3rem .35rem;border:1px solid var(--border);text-align:center;
-  font-family:var(--mono);font-size:.66rem;cursor:default}
+  font-family:var(--mono);font-size:.66rem;cursor:default;font-weight:600}
 .hmt td:hover{outline:1px solid var(--blue);outline-offset:-1px}
 
 /* RANKING */
@@ -533,6 +533,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
         <div class="panel c6">
           <div class="ph"><div class="pt">Distribución de cumplimiento</div></div>
           <div class="chart-wrap"><canvas id="ch-dist" height="210"></canvas></div>
+          <div id="dist-legend" style="display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.7rem;justify-content:center"></div>
         </div>
         <div class="panel c6">
           <div class="ph"><div class="pt">Evolución % cumplimiento por entidad</div></div>
@@ -1277,21 +1278,21 @@ function groupBy(data,fn) {
   return m;
 }
 function pct(r,p){ return p>0 ? Math.round(r/p*1000)/10 : null; }
-function pCol(v){ if(v===null)return'#475569'; if(v>110)return'#60a5fa'; if(v>=95)return'#34d399'; if(v>=80)return'#fbbf24'; return'#f87171'; }
-function pBg(v){  if(v===null)return'transparent'; if(v>110)return'rgba(59,130,246,.15)'; if(v>=95)return'rgba(16,185,129,.13)'; if(v>=80)return'rgba(245,158,11,.13)'; return'rgba(239,68,68,.13)'; }
+function pCol(v){ if(v===null)return'#475569'; if(v>110)return'#7dd3fc'; if(v>=95)return'#86efac'; if(v>=80)return'#fde68a'; return'#fca5a5'; }
+function pBg(v){  if(v===null)return'transparent'; if(v>110)return'#1e3a5f'; if(v>=95)return'#14532d'; if(v>=80)return'#451a03'; return'#4a0404'; }
 function bCls(v){ if(v===null)return'n0'; if(v>110)return'o0'; if(v>=95)return'g0'; if(v>=80)return'w0'; return'b0'; }
 function est(v){  if(v===null)return'Sin datos'; if(v>110)return'Sobre-riego'; if(v>=95)return'Óptimo'; if(v>=80)return'Aceptable'; return'Déficit'; }
 function fmt(n,d=0){ if(n===null||isNaN(n))return'—'; return n.toLocaleString('es-PE',{maximumFractionDigits:d}); }
 function dc(id){ if(charts[id]){try{charts[id].destroy();}catch(e){} delete charts[id];} }
 
-const PAL=['#3b82f6','#10b981','#f59e0b','#ef4444','#7c3aed','#0891b2','#db2777','#65a30d','#facc15','#0284c7','#9333ea','#fb923c','#059669','#4f46e5','#f59e0b'];
+const PAL=['#38bdf8','#4ade80','#facc15','#f87171','#c084fc','#22d3ee','#fb923c','#86efac','#fde68a','#67e8f9','#e879f9','#fca5a5','#6ee7b7','#818cf8','#fcd34d'];
 
 const CD = {
   responsive:true, animation:false,
-  plugins:{legend:{labels:{color:'#64748b',font:{size:10},boxWidth:9}}},
+  plugins:{legend:{labels:{color:'#94a3b8',font:{size:10},boxWidth:10,padding:8}}},
   scales:{
-    x:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}},
-    y:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'rgba(255,255,255,.05)'}}
+    x:{ticks:{color:'#64748b',font:{size:9}},grid:{color:'rgba(255,255,255,.08)'},border:{color:'rgba(255,255,255,.1)'}},
+    y:{ticks:{color:'#94a3b8',font:{size:9}},grid:{color:'rgba(255,255,255,.08)'},border:{color:'rgba(255,255,255,.1)'}}
   }
 };
 
@@ -1331,9 +1332,9 @@ function renderResumen(data) {
   const dr=sems.map(s=>data.filter(r=>r.semana===s).reduce((a,r)=>a+r.real,0));
   charts['pvr']=new Chart(document.getElementById('ch-pvr').getContext('2d'),{type:'bar',data:{
     labels:sems.map(s=>'S'+s),datasets:[
-    {label:'Programado',data:dp,backgroundColor:'rgba(180,83,9,.15)',borderColor:'#f59e0b',borderWidth:1.5,yAxisID:'y'},
-    {label:'Realizado', data:dr,backgroundColor:'rgba(22,163,74,.15)', borderColor:'#10b981',borderWidth:1.5,yAxisID:'y'},
-    {label:'% Cumpl.',  data:sems.map((_,i)=>pct(dr[i],dp[i])),type:'line',borderColor:'#3b82f6',borderWidth:2,pointRadius:2.5,tension:.35,backgroundColor:'transparent',yAxisID:'y2'},
+    {label:'Programado',data:dp,backgroundColor:'#f59e0b',borderColor:'#f59e0b',borderWidth:0,yAxisID:'y',borderRadius:3,order:2},
+    {label:'Realizado', data:dr,backgroundColor:'#10b981',borderColor:'#10b981',borderWidth:0,yAxisID:'y',borderRadius:3,order:2},
+    {label:'% Cumpl.',  data:sems.map((_,i)=>pct(dr[i],dp[i])),type:'line',borderColor:'#38bdf8',borderWidth:2.5,pointRadius:4,pointBackgroundColor:'#38bdf8',tension:.35,backgroundColor:'transparent',yAxisID:'y2',order:1},
   ]},options:{...CD,scales:{x:CD.scales.x,
     y:{...CD.scales.y,title:{display:true,text:'m³',color:'#64748b',font:{size:8}}},
     y2:{position:'right',min:0,max:150,ticks:{color:'#3b82f6',font:{size:8},callback:v=>v+'%'},grid:{drawOnChartArea:false}}}}});
@@ -1345,7 +1346,7 @@ function renderResumen(data) {
     const dash=p!==null?(Math.min(p,150)/100)*circ:0;
     return `<div class="ring-item" onclick="msQuickFilter('${k}')">
       <svg viewBox="0 0 58 58">
-        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#e4e7ec" stroke-width="5"/>
+        <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#1e2d45" stroke-width="5"/>
         <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${col}" stroke-width="5"
           stroke-dasharray="${dash.toFixed(1)} ${circ.toFixed(1)}"
           stroke-dashoffset="${circ/4}" stroke-linecap="round"/>
@@ -1359,12 +1360,85 @@ function renderResumen(data) {
   // Donut
   dc('dist');
   const pcts=[...grp.values()].map(v=>pct(v.real,v.prog)).filter(v=>v!==null);
-  const bins=[{l:'<50%',mn:0,mx:50,c:'#ef4444'},{l:'50–79%',mn:50,mx:80,c:'#fb923c'},{l:'80–94%',mn:80,mx:95,c:'#f59e0b'},{l:'95–110%',mn:95,mx:110,c:'#10b981'},{l:'>110%',mn:110,mx:9999,c:'#3b82f6'}];
+  const bins=[
+    {l:'Déficit crítico',rng:'< 50%',   mn:0,  mx:50,  c:'#f87171'},
+    {l:'Déficit',        rng:'50–79%',  mn:50, mx:80,  c:'#fb923c'},
+    {l:'Aceptable',      rng:'80–94%',  mn:80, mx:95,  c:'#fbbf24'},
+    {l:'Óptimo',         rng:'95–110%', mn:95, mx:110, c:'#4ade80'},
+    {l:'Sobre-riego',    rng:'> 110%',  mn:110,mx:9999, c:'#38bdf8'},
+  ];
+  const binCounts = bins.map(b=>pcts.filter(v=>v>=b.mn&&v<b.mx).length);
+  const totalEnts = pcts.length;
   charts['dist']=new Chart(document.getElementById('ch-dist').getContext('2d'),{
-    type:'doughnut',data:{labels:bins.map(b=>b.l),datasets:[{data:bins.map(b=>pcts.filter(v=>v>=b.mn&&v<b.mx).length),
-      backgroundColor:bins.map(b=>b.c+'28'),borderColor:bins.map(b=>b.c),borderWidth:1.5}]},
-    options:{responsive:true,animation:false,plugins:{legend:{position:'right',labels:{color:'#64748b',font:{size:10},boxWidth:9}}}}
+    type:'doughnut',
+    data:{
+      labels: bins.map((b,i)=>`${b.l} (${b.rng})`),
+      datasets:[{
+        data: binCounts,
+        backgroundColor: bins.map(b=>b.c+'cc'),
+        borderColor: bins.map(b=>b.c),
+        borderWidth: 2,
+        hoverOffset: 6
+      }]
+    },
+    options:{
+      responsive:true, animation:false,
+      cutout:'60%',
+      plugins:{
+        legend:{
+          position:'right',
+          labels:{
+            color:'#cbd5e1', font:{size:10}, boxWidth:11, padding:10,
+            generateLabels: chart => {
+              const ds = chart.data.datasets[0];
+              return chart.data.labels.map((lbl,i)=>{
+                const cnt = ds.data[i];
+                const pct2 = totalEnts>0 ? Math.round(cnt/totalEnts*100) : 0;
+                return {
+                  text: `${bins[i].l}  ${cnt} (${pct2}%)`,
+                  fontColor: '#94a3b8',
+                  fillStyle: ds.backgroundColor[i],
+                  strokeStyle: ds.borderColor[i],
+                  lineWidth: 2,
+                  hidden: cnt===0,
+                  index: i
+                };
+              });
+            }
+          }
+        },
+        tooltip:{
+          callbacks:{
+            label: ctx => {
+              const cnt = ctx.parsed;
+              const pct2 = totalEnts>0 ? (cnt/totalEnts*100).toFixed(1) : 0;
+              return ` ${bins[ctx.dataIndex].l}: ${cnt} entidades (${pct2}%)  [${bins[ctx.dataIndex].rng}]`;
+            }
+          }
+        }
+      }
+    }
   });
+  // Center label: total entities
+  const distCanvas = document.getElementById('ch-dist');
+  distCanvas.setAttribute('data-total', totalEnts);
+  // Render summary badges
+  const distLegend = document.getElementById('dist-legend');
+  if (distLegend) {
+    distLegend.innerHTML = bins.map((b,i)=>{
+      const cnt = binCounts[i];
+      const p2  = totalEnts>0 ? Math.round(cnt/totalEnts*100) : 0;
+      if (cnt===0) return '';
+      return `<div style="display:flex;align-items:center;gap:.3rem;background:var(--surface2);
+        border:1px solid ${b.c}55;border-radius:6px;padding:.28rem .55rem">
+        <div style="width:9px;height:9px;border-radius:50%;background:${b.c};flex-shrink:0"></div>
+        <span style="font-family:var(--mono);font-size:.65rem;color:${b.c};font-weight:600">${b.rng}</span>
+        <span style="font-size:.65rem;color:var(--text3)">·</span>
+        <span style="font-family:var(--mono);font-size:.65rem;color:var(--text2);font-weight:600">${cnt}</span>
+        <span style="font-size:.63rem;color:var(--text3)">(${p2}%)</span>
+      </div>`;
+    }).join('');
+  }
 
   // Evo lines
   dc('evo');
@@ -1408,9 +1482,9 @@ function renderAcumulado(data) {
   dp.forEach((p,i)=>{sp+=p;sr+=dr[i];cumP.push(sp);cumR.push(sr);cumPct.push(pct(sr,sp));});
 
   charts['acum']=new Chart(document.getElementById('ch-acum').getContext('2d'),{type:'bar',data:{labels,datasets:[
-    {label:'Prog. acum.', data:cumP,backgroundColor:'rgba(180,83,9,.12)',borderColor:'#f59e0b',borderWidth:1.5,yAxisID:'y'},
-    {label:'Real. acum.', data:cumR,backgroundColor:'rgba(22,163,74,.12)', borderColor:'#10b981',borderWidth:1.5,yAxisID:'y'},
-    {label:'% Cumpl.',    data:cumPct,type:'line',borderColor:'#3b82f6',borderWidth:2,pointRadius:1.5,tension:.4,fill:true,backgroundColor:'rgba(37,99,235,.05)',yAxisID:'y2'},
+    {label:'Prog. acum.', data:cumP,backgroundColor:'#d97706',borderColor:'#d97706',borderWidth:0,yAxisID:'y',borderRadius:3,order:2},
+    {label:'Real. acum.', data:cumR,backgroundColor:'#10b981',borderColor:'#10b981',borderWidth:0,yAxisID:'y',borderRadius:3,order:2},
+    {label:'% Cumpl.',    data:cumPct,type:'line',borderColor:'#38bdf8',borderWidth:2.5,pointRadius:3,pointBackgroundColor:'#38bdf8',tension:.4,fill:false,backgroundColor:'transparent',yAxisID:'y2',order:1},
   ]},options:{...CD,scales:{x:CD.scales.x,
     y:{...CD.scales.y,title:{display:true,text:'m³',color:'#64748b',font:{size:8}}},
     y2:{position:'right',min:0,max:150,ticks:{color:'#3b82f6',font:{size:8},callback:v=>v+'%'},grid:{drawOnChartArea:false}}}}});
@@ -1426,8 +1500,8 @@ function renderAcumulado(data) {
   const sems=[...new Set(data.map(r=>r.semana))].sort((a,b)=>a-b);
   charts['acum-sem']=new Chart(document.getElementById('ch-acum-sem').getContext('2d'),{type:'bar',data:{
     labels:sems.map(s=>'S'+s),datasets:[
-    {label:'Prog.',data:sems.map(s=>data.filter(r=>r.semana===s).reduce((a,r)=>a+r.prog,0)),backgroundColor:'rgba(180,83,9,.18)',borderColor:'#f59e0b',borderWidth:1},
-    {label:'Real.',data:sems.map(s=>data.filter(r=>r.semana===s).reduce((a,r)=>a+r.real,0)),backgroundColor:'rgba(22,163,74,.18)', borderColor:'#10b981',borderWidth:1},
+    {label:'Prog.',data:sems.map(s=>data.filter(r=>r.semana===s).reduce((a,r)=>a+r.prog,0)),backgroundColor:'#d97706',borderColor:'#d97706',borderWidth:0,borderRadius:3,order:2},
+    {label:'Real.',data:sems.map(s=>data.filter(r=>r.semana===s).reduce((a,r)=>a+r.real,0)),backgroundColor:'#10b981',borderColor:'#10b981',borderWidth:0,borderRadius:3,order:2},
   ]},options:{...CD,scales:{x:CD.scales.x,y:{...CD.scales.y,title:{display:true,text:'m³',color:'#64748b',font:{size:8}}}}}});
 }
 
@@ -1449,7 +1523,7 @@ function renderSemanal(data) {
   charts['semanal']=new Chart(document.getElementById('ch-semanal').getContext('2d'),{
     type:SEM_MODE,data:{labels:sems.map(s=>'Sem '+s),datasets:ents.map((e,i)=>({
       label:e, borderColor:PAL[i%PAL.length],
-      backgroundColor:SEM_MODE==='bar'?PAL[i%PAL.length]+'2a':'transparent',
+      backgroundColor:SEM_MODE==='bar'?PAL[i%PAL.length]+'bb':'transparent',
       borderWidth:1.8, pointRadius:SEM_MODE==='line'?2.5:0, tension:.3,
       data:sems.map(s=>{const rw=data.filter(r=>fn(r)===e&&r.semana===s);return pct(rw.reduce((a,r)=>a+r.real,0),rw.reduce((a,r)=>a+r.prog,0));})
     }))},
@@ -1553,9 +1627,9 @@ function renderDiario(data) {
   dc('daily');
   charts['daily']=new Chart(document.getElementById('ch-daily').getContext('2d'),{type:'bar',data:{
     labels:sorted.map(([d])=>d.slice(5)),datasets:[
-    {label:'Programado',data:sorted.map(([,v])=>v.p), backgroundColor:'rgba(180,83,9,.15)',borderColor:'#f59e0b',borderWidth:1,yAxisID:'y'},
-    {label:'Realizado', data:sorted.map(([,v])=>v.r2),backgroundColor:'rgba(22,163,74,.15)', borderColor:'#10b981',borderWidth:1,yAxisID:'y'},
-    {label:'%',         data:sorted.map(([,v])=>pct(v.r2,v.p)),type:'line',borderColor:'#3b82f6',borderWidth:1.8,pointRadius:0,tension:.4,backgroundColor:'transparent',yAxisID:'y2'},
+    {label:'Programado',data:sorted.map(([,v])=>v.p), backgroundColor:'#d97706',borderColor:'#d97706',borderWidth:0,yAxisID:'y',borderRadius:2,order:2},
+    {label:'Realizado', data:sorted.map(([,v])=>v.r2),backgroundColor:'#10b981',borderColor:'#10b981',borderWidth:0,yAxisID:'y',borderRadius:2,order:2},
+    {label:'%',         data:sorted.map(([,v])=>pct(v.r2,v.p)),type:'line',borderColor:'#38bdf8',borderWidth:2.5,pointRadius:0,tension:.4,backgroundColor:'transparent',yAxisID:'y2',order:1},
   ]},options:{...CD,scales:{x:{...CD.scales.x,ticks:{...CD.scales.x.ticks,maxTicksLimit:20}},
     y:{...CD.scales.y,title:{display:true,text:'m³',color:'#64748b',font:{size:8}}},
     y2:{position:'right',min:0,max:150,ticks:{color:'#3b82f6',font:{size:8},callback:v=>v+'%'},grid:{drawOnChartArea:false}}}}});
@@ -1597,7 +1671,7 @@ function renderFallas(data) {
   const sems=[...new Set(data.map(r=>r.semana))].sort((a,b)=>a-b);
   charts['fallas']=new Chart(document.getElementById('ch-fallas').getContext('2d'),{
     type:'bar',data:{labels:sems.map(s=>'S'+s),datasets:arr.slice(0,5).map(([c],i)=>({
-      label:c, backgroundColor:PAL[i+2]+'30', borderColor:PAL[i+2], borderWidth:1,
+      label:c, backgroundColor:PAL[i+2], borderColor:PAL[i+2], borderWidth:0, borderRadius:2,
       data:sems.map(s=>data.filter(r=>r.semana===s&&r.falla===c).length)
     }))},
     options:{...CD,plugins:{...CD.plugins,legend:{display:true,labels:{color:'#64748b',font:{size:9},boxWidth:8}}},
@@ -1744,7 +1818,7 @@ function renderCosecha(data) {
     type:'bar',
     data:{labels: meses.map(m=>MES_NAMES[m]||('M'+m)), datasets:[{
       label:'% Cumplimiento',data:mesPct,
-      backgroundColor:mesPct.map(v=>pBg(v)),borderColor:mesPct.map(v=>pCol(v)),borderWidth:1.5
+      backgroundColor:mesPct.map(v=>pCol(v)),borderColor:mesPct.map(v=>pCol(v)),borderWidth:0,borderRadius:4,order:2
     }]},
     options:{...CD, plugins:{legend:{display:false}},
       scales:{x:CD.scales.x,y:{...CD.scales.y,min:0,max:150,ticks:{...CD.scales.y.ticks,callback:v=>v+'%'}}}}
@@ -1770,8 +1844,8 @@ function renderCosecha(data) {
   charts['ch-cos-agoste'] = new Chart(document.getElementById('ch-cos-agoste').getContext('2d'), {
     type:'doughnut',
     data:{labels:bins.map(b=>b.l), datasets:[{data:bins.map(b=>diasArr.filter(d=>d>=b.mn&&d<b.mx).length),
-      backgroundColor:bins.map(b=>b.c+'28'),borderColor:bins.map(b=>b.c),borderWidth:1.5}]},
-    options:{responsive:true,animation:false,plugins:{legend:{position:'right',labels:{color:'#64748b',font:{size:10},boxWidth:9}}}}
+      backgroundColor:bins.map(b=>b.c+'cc'),borderColor:bins.map(b=>b.c),borderWidth:2,hoverOffset:5}]},
+    options:{responsive:true,animation:false,plugins:{legend:{position:'right',labels:{color:'#cbd5e1',font:{size:10},boxWidth:10}}}}
   });
 
   // ── Lista días a agoste ──
