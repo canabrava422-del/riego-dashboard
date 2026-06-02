@@ -785,11 +785,11 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
             <div style="display:flex;align-items:center;gap:.3rem;font-size:.68rem;color:#f87171">
               <div style="width:10px;height:10px;border-radius:2px;background:#f87171;flex-shrink:0"></div>Déficit crítico &lt;50%
             </div>
-            <div style="display:flex;align-items:center;gap:.3rem;font-size:.68rem;color:#fed7aa">
-              <div style="width:10px;height:10px;border-radius:2px;background:#fed7aa;flex-shrink:0"></div>Aceptable 80–94%
-            </div>
             <div style="display:flex;align-items:center;gap:.3rem;font-size:.68rem;color:#fbbf24">
               <div style="width:10px;height:10px;border-radius:2px;background:#fbbf24;flex-shrink:0"></div>Déficit 50–79%
+            </div>
+            <div style="display:flex;align-items:center;gap:.3rem;font-size:.68rem;color:#fb923c">
+              <div style="width:10px;height:10px;border-radius:2px;background:#fb923c;flex-shrink:0"></div>Aceptable 80–94%
             </div>
             <div style="display:flex;align-items:center;gap:.3rem;font-size:.68rem;color:#4ade80">
               <div style="width:10px;height:10px;border-radius:2px;background:#4ade80;flex-shrink:0"></div>Óptimo 95–110%
@@ -1440,7 +1440,7 @@ function renderResumen(data) {
   const pcts=[...grp.values()].map(v=>pct(v.real,v.prog)).filter(v=>v!==null);
   const bins=[
     {l:'Déficit crítico',rng:'< 50%',   mn:0,  mx:50,  c:'#f87171'},
-    {l:'Déficit',        rng:'50–79%',  mn:50, mx:80,  c:'#fb923c'},
+    {l:'Déficit',        rng:'50–79%',  mn:50, mx:80,  c:'#fbbf24'},
     {l:'Aceptable',      rng:'80–94%',  mn:80, mx:95,  c:'#fb923c'},
     {l:'Óptimo',         rng:'95–110%', mn:95, mx:110, c:'#4ade80'},
     {l:'Sobre-riego',    rng:'> 110%',  mn:110,mx:9999, c:'#38bdf8'},
@@ -1935,13 +1935,19 @@ function renderCosecha(data) {
     const col = d <= 0 ? '#ef4444' : d <= 30 ? '#fb923c' : d <= 60 ? '#f59e0b' : '#10b981';
     const lbl = d <= 0 ? 'Agostado' : d <= 30 ? '≤30 días' : d <= 60 ? '≤60 días' : '>60 días';
     listHTML += `<tr><td class="m" style="color:var(--blue)">${h.eqtr}</td>
-      <td class="r m" style="color:${col};font-weight:500">${d}</td>
+      <td class="r m" style="color:${col};font-weight:500">${
+        d <= 0
+          ? 'Agostado'
+          : d === 1
+            ? 'Falta 1 día'
+            : `Faltan ${d} días`
+      }</td>
       <td><span class="bdg" style="background:${col}20;color:${col}">${lbl}</span></td></tr>`;
   });
   agosteSinFecha.forEach(h => {
     listHTML += `<tr><td class="m" style="color:var(--blue)">${h.eqtr}</td>
-      <td class="r m" style="color:var(--text4)">${h.agosteStr||'—'}</td>
-      <td><span class="bdg n0">${h.agosteStr||'Sin fecha'}</span></td></tr>`;
+      <td class="r m" style="color:var(--text4)">Sin fecha</td>
+      <td><span class="bdg n0">Sin fecha</span></td></tr>`;
   });
   listHTML += '</tbody></table>';
   document.getElementById('agoste-list').innerHTML = listHTML;
@@ -1961,7 +1967,15 @@ function renderCosecha(data) {
       <td class="r">${h.mesCosecha ? MES_NAMES[h.mesCosecha]+' ('+h.mesCosecha+')' : '—'}</td>
       <td class="m">${h.fCosechaStr||'—'}</td>
       <td class="m">${h.agosteStr||'—'}</td>
-      <td class="r m" style="color:${dCol};font-weight:500">${dTxt}</td>
+      <td class="r m" style="color:${dCol};font-weight:500">${
+        d === null
+          ? (h.agosteStr || '—')
+          : d <= 0
+            ? 'Agostado'
+            : d === 1
+              ? 'Falta 1 día'
+              : `Faltan ${d} días`
+      }</td>
       <td class="r">${fmt(Math.round(rv.prog))}</td>
       <td class="r">${fmt(Math.round(rv.real))}</td>
       <td><div class="bc"><div class="bb"><div class="bf" style="width:${p!==null?Math.min(p,120):0}%;background:${pCol(p)}"></div></div>
