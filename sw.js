@@ -1,5 +1,5 @@
 // ── Auto-versioned cache: change VERSION to force update on all devices ──
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'riego-' + VERSION;
 
 const ASSETS = [
