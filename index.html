@@ -410,19 +410,58 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 
 /* ── Update notification banner ── */
 #update-banner{
-  display:none;position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);
-  background:var(--blue);color:#0a0f1e;padding:.6rem 1.4rem;border-radius:8px;
-  font-size:.8rem;font-family:var(--sans);font-weight:600;z-index:9999;
-  box-shadow:0 4px 16px rgba(0,0,0,.4);cursor:pointer;
-  animation:slideUp .3s ease;white-space:nowrap
+  display:none;position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%);
+  background:#1e3a5f;border:1.5px solid #38bdf8;
+  border-radius:12px;font-family:var(--sans);z-index:9999;
+  box-shadow:0 8px 32px rgba(0,0,0,.6);
+  min-width:280px;max-width:90vw;overflow:hidden
 }
-@keyframes slideUp{from{opacity:0;transform:translateX(-50%) translateY(20px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+#update-banner.show{display:block;animation:slideUp .35s cubic-bezier(.34,1.56,.64,1)}
+@keyframes slideUp{
+  from{opacity:0;transform:translateX(-50%) translateY(30px)}
+  to{opacity:1;transform:translateX(-50%) translateY(0)}
+}
+#update-banner-inner{
+  display:flex;align-items:center;gap:.75rem;padding:.75rem 1rem
+}
+#update-banner-icon{font-size:1.3rem;flex-shrink:0}
+#update-banner-text{flex:1}
+#update-banner-title{font-size:.82rem;font-weight:700;color:#38bdf8;line-height:1.2}
+#update-banner-sub{font-size:.7rem;color:#94a3b8;margin-top:.1rem}
+#update-banner-btn{
+  background:#38bdf8;color:#0a0f1e;border:none;border-radius:7px;
+  font-size:.76rem;font-weight:700;padding:.4rem .85rem;cursor:pointer;
+  font-family:var(--sans);flex-shrink:0;-webkit-tap-highlight-color:transparent
+}
+#update-banner-btn:active{opacity:.8}
+#update-banner-close{
+  background:none;border:none;color:#64748b;font-size:1rem;cursor:pointer;
+  padding:.2rem .4rem;flex-shrink:0;-webkit-tap-highlight-color:transparent
+}
+#update-banner-progress{
+  height:3px;background:rgba(56,189,248,.25);
+}
+#update-banner-progress-bar{
+  height:100%;background:#38bdf8;width:0%;
+  transition:width linear
+}
 
 </style>
 </head>
 <body>
 
-<div id="update-banner" onclick="location.reload()">🔄 Nueva versión disponible · Toca para actualizar</div>
+<div id="update-banner">
+  <div id="update-banner-progress"><div id="update-banner-progress-bar"></div></div>
+  <div id="update-banner-inner">
+    <div id="update-banner-icon">🔄</div>
+    <div id="update-banner-text">
+      <div id="update-banner-title">Nueva versión disponible</div>
+      <div id="update-banner-sub">Toca Actualizar para instalar</div>
+    </div>
+    <button id="update-banner-btn" onclick="doUpdate()">Actualizar</button>
+    <button id="update-banner-close" onclick="closeBanner()" title="Cerrar">✕</button>
+  </div>
+</div>
 <!-- LOADING -->
 <div id="loading"><div class="spinner"></div><p id="load-msg">Leyendo archivo...</p></div>
 
@@ -1977,22 +2016,96 @@ applyFilters = function() {
 
 
 
-// Listen for SW update message
+// ═══════════════════════════════════════════════
+//  PWA UPDATE SYSTEM
+// ═══════════════════════════════════════════════
+let _swReg = null;
+let _newWorker = null;
+
+function showUpdateBanner() {
+  const b = document.getElementById('update-banner');
+  if (!b) return;
+  b.classList.add('show');
+  // Animate progress bar over 8 seconds (visual hint)
+  const bar = document.getElementById('update-banner-progress-bar');
+  if (bar) {
+    bar.style.transition = 'none';
+    bar.style.width = '0%';
+    setTimeout(() => {
+      bar.style.transition = 'width 8s linear';
+      bar.style.width = '100%';
+    }, 100);
+  }
+}
+
+function closeBanner() {
+  const b = document.getElementById('update-banner');
+  if (b) { b.style.animation = 'none'; b.style.opacity = '0'; b.style.transform = 'translateX(-50%) translateY(30px)'; b.style.transition = 'all .3s'; setTimeout(()=>b.classList.remove('show'),300); }
+}
+
+function doUpdate() {
+  // Tell waiting SW to take control immediately
+  if (_newWorker) {
+    _newWorker.postMessage({ type: 'SKIP_WAITING' });
+  }
+  // Reload once new SW is controlling the page
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    window.location.reload();
+  });
+  // Fallback reload after 1.5s
+  setTimeout(() => window.location.reload(), 1500);
+}
+
+// Listen for SW_UPDATED message (when SW activates and takes control)
 if (navigator.serviceWorker) {
   navigator.serviceWorker.addEventListener('message', e => {
     if (e.data && e.data.type === 'SW_UPDATED') {
-      const banner = document.getElementById('update-banner');
-      if (banner) banner.style.display = 'block';
+      showUpdateBanner();
     }
   });
 }
 
-// ── PWA: Register Service Worker ──
+// ── Register SW and detect updates ──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js')
-      .then(r => console.log('SW registered'))
-      .catch(e => console.log('SW error:', e));
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then(reg => {
+        _swReg = reg;
+
+        // CASE 1: New SW waiting already (app was open in bg and SW updated)
+        if (reg.waiting) {
+          _newWorker = reg.waiting;
+          showUpdateBanner();
+        }
+
+        // CASE 2: SW starts installing while page is open
+        reg.addEventListener('updatefound', () => {
+          const newSW = reg.installing;
+          if (!newSW) return;
+          newSW.addEventListener('statechange', () => {
+            if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
+              // New version ready, old one still in control
+              _newWorker = newSW;
+              showUpdateBanner();
+            }
+          });
+        });
+
+        // CASE 3: Periodic check every 60 seconds (works even when installed as app)
+        setInterval(() => {
+          reg.update().catch(() => {});
+        }, 60 * 1000);
+
+        // CASE 4: Check on visibility change (user comes back to app)
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') {
+            reg.update().catch(() => {});
+          }
+        });
+
+        console.log('[PWA] SW registered, version check active');
+      })
+      .catch(err => console.log('[PWA] SW error:', err));
   });
 }
 
