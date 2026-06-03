@@ -71,7 +71,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
   font-size:.78rem;font-family:var(--sans);cursor:pointer;transition:all .15s;text-align:center}
 .src-tab.active{background:var(--blue);color:#0a0f1e;font-weight:600}
 .src-tab:hover:not(.active){background:var(--surface3);color:var(--text)}
-/* Google Sheets input */
+/* OneDrive input */
 .sheets-box{width:min(440px,100%);background:var(--surface);border:1.5px solid var(--border2);
   border-radius:12px;padding:1.8rem 1.5rem;text-align:left}
 .sheets-box h2{font-size:.88rem;font-weight:600;color:var(--text);margin-bottom:.35rem}
@@ -524,7 +524,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
   <!-- Source mode tabs -->
   <div class="src-tabs">
     <button class="src-tab active" id="tab-file" onclick="setSourceMode('file')">📂 Subir archivo</button>
-    <button class="src-tab" id="tab-sheets" onclick="setSourceMode('sheets')">📊 Google Sheets</button>
+    <button class="src-tab" id="tab-sheets" onclick="setSourceMode('sheets')">☁️ OneDrive</button>
   </div>
 
   <!-- File upload mode -->
@@ -541,21 +541,21 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
     <button class="btn-primary" onclick="document.getElementById('file-input').click()">Seleccionar archivo</button>
   </div>
 
-  <!-- Google Sheets mode -->
+  <!-- OneDrive mode -->
   <div id="mode-sheets" style="display:none">
     <div class="sheets-box">
-      <h2>📊 Conectar Google Sheets</h2>
-      <p>Pega el enlace de tu Google Sheets. El dashboard se actualizará automáticamente cada 5 minutos.</p>
+      <h2>☁️ Conectar Excel en OneDrive</h2>
+      <p>Pega el enlace de descarga de tu Excel compartido en OneDrive. El dashboard se actualizará automáticamente cada 5 minutos.</p>
       <div class="sheets-hint">
-        <b>Cómo preparar tu hoja:</b><br>
-        1. Abre tu Google Sheets<br>
-        2. Archivo → <b>Compartir</b> → <b>Publicar en la web</b><br>
-        3. Selecciona <b>Hoja1</b> → formato <b>CSV</b> → Publicar<br>
-        4. Copia el enlace y pégalo aquí<br>
-        <b>La Hoja2 (cosecha) también se carga automáticamente.</b>
+        <b>Cómo obtener el enlace:</b><br>
+        1. Abre tu archivo Excel en <b>OneDrive</b><br>
+        2. Clic en <b>Compartir</b> (arriba a la derecha)<br>
+        3. Clic en <b>"Copiar vínculo"</b> → asegúrate que diga <b>"Cualquiera con el vínculo puede ver"</b><br>
+        4. Pega ese enlace aquí abajo<br>
+        <span style="color:var(--text4)">El archivo se descarga y procesa directamente en tu dispositivo.</span>
       </div>
       <input type="text" class="sheets-input" id="sheets-url"
-        placeholder="https://docs.google.com/spreadsheets/d/...">
+        placeholder="https://1drv.ms/x/... o https://onedrive.live.com/...">
       <div id="sheets-error" style="font-size:.75rem;color:var(--red);margin-bottom:.6rem;display:none"></div>
       <button class="btn-primary" style="width:100%;margin-top:0" onclick="loadFromSheets()">Cargar datos</button>
       <div class="auto-refresh-badge" id="auto-refresh-badge">
@@ -2121,11 +2121,10 @@ function renderCosecha(data) {
 
 
 // ═══════════════════════════════════════════════
-//  SOURCE MODE — File vs Google Sheets
+//  SOURCE MODE — File vs OneDrive
 // ═══════════════════════════════════════════════
 let SOURCE_MODE = 'file';
-let SHEETS_URL_1 = null;
-let SHEETS_URL_2 = null;
+let ONEDRIVE_URL = null;
 let refreshInterval = null;
 
 function setSourceMode(mode) {
@@ -2136,89 +2135,122 @@ function setSourceMode(mode) {
   document.getElementById('mode-sheets').style.display = mode==='sheets' ? 'block' : 'none';
 }
 
-// ── Build Google Sheets CSV URL from any Sheets link ──
-function buildCSVUrl(rawUrl, sheetIndex) {
-  // Support: published CSV link, regular edit/view link
-  let m;
-  // Already a CSV export link
-  if (rawUrl.includes('/pub?') || rawUrl.includes('output=csv')) {
-    const base = rawUrl.split('/pub')[0];
-    return base + '/pub?gid=' + sheetIndex + '&single=true&output=csv';
-  }
-  // Regular link: extract spreadsheet ID
-  if ((m = rawUrl.match(/spreadsheets\/d\/([a-zA-Z0-9_-]+)/))) {
-    const id = m[1];
-    return `https://docs.google.com/spreadsheets/d/${id}/export?format=csv&gid=${sheetIndex}&single=true`;
-  }
-  return null;
-}
+// ── Convert OneDrive share URL to direct download URL ──
+function buildOneDriveUrl(rawUrl) {
+  // Format 1: https://1drv.ms/x/s!Abc...  (short link)
+  // Format 2: https://onedrive.live.com/edit.aspx?...resid=...
+  // Format 3: https://{tenant}-my.sharepoint.com/...
+  // For short links (1drv.ms) → we need to encode to download link
+  // OneDrive trick: replace "redir" with "download" or append &download=1
 
-async function getSheetGids(rawUrl) {
-  // Try to get sheet IDs (gid) for sheet1 and sheet2
-  // Default gids: sheet1 = 0, sheet2 = first other sheet
-  // We'll try gid=0 for sheet1 and gid=1 for sheet2 as fallback
-  // For published CSVs just use the URL the user provided for sheet1
-  return { gid1: 0, gid2: null };
+  let url = rawUrl.trim();
+
+  // 1drv.ms short link → convert to download
+  if (url.includes('1drv.ms') || url.includes('onedrive.live.com')) {
+    // Encode the URL in base64 and build download link
+    const b64 = btoa(url).replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
+    return `https://api.onedrive.com/v1.0/shares/u!${b64}/root/content`;
+  }
+
+  // SharePoint/OneDrive for Business link
+  if (url.includes('sharepoint.com') || url.includes('my.sharepoint.com')) {
+    // Add download=1 to force download
+    if (url.includes('?')) return url + '&download=1';
+    return url + '?download=1';
+  }
+
+  // Already a direct download link
+  return url;
 }
 
 async function loadFromSheets(isAutoRefresh) {
-  const raw = document.getElementById('sheets-url') ?
-    document.getElementById('sheets-url').value.trim() : SHEETS_URL_1;
+  const rawInput = document.getElementById('sheets-url');
+  const raw = rawInput ? rawInput.value.trim() : ONEDRIVE_URL;
+
   if (!raw) {
-    document.getElementById('sheets-error').style.display = 'block';
-    document.getElementById('sheets-error').textContent = '⚠ Pega el enlace de tu Google Sheets.';
+    showSheetsError('⚠ Pega el enlace de tu archivo Excel en OneDrive.');
     return;
   }
-  const url1 = buildCSVUrl(raw, 0);
-  if (!url1) {
-    document.getElementById('sheets-error').style.display = 'block';
-    document.getElementById('sheets-error').textContent = '⚠ Enlace no reconocido. Usa el enlace de publicar o de edición.';
-    return;
-  }
+
   document.getElementById('sheets-error').style.display = 'none';
-  SHEETS_URL_1 = raw;
+  ONEDRIVE_URL = raw;
 
   if (!isAutoRefresh) showLoading(true);
-  updateLoadMsg('Cargando Hoja 1...');
+  updateLoadMsg('Conectando con OneDrive...');
 
   try {
-    // Fetch sheet 1 (riego)
-    const resp1 = await fetch(url1 + '&cachebust=' + Date.now());
-    if (!resp1.ok) throw new Error('No se pudo cargar la hoja. Verifica que esté publicada.');
-    const csv1 = await resp1.text();
-    const json1 = parseCSV(csv1);
-    if (!json1.length || !json1[0].hasOwnProperty('semana')) {
-      throw new Error('Formato inválido: falta columna "semana". Verifica la hoja.');
+    const downloadUrl = buildOneDriveUrl(raw);
+    updateLoadMsg('Descargando Excel...');
+
+    // Fetch the Excel file as ArrayBuffer
+    const resp = await fetch(downloadUrl, {
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+
+    if (!resp.ok) {
+      if (resp.status === 401 || resp.status === 403) {
+        throw new Error('Sin acceso. Asegúrate que el enlace sea "Cualquiera con el vínculo puede ver".');
+      }
+      throw new Error(`Error al descargar (${resp.status}). Verifica el enlace.`);
     }
 
-    updateLoadMsg('Cargando Hoja 2 (cosecha)...');
-    // Try to fetch sheet 2 (cosecha) — try gid=1,2,3... until 404
+    updateLoadMsg('Procesando Excel...');
+    const arrayBuffer = await resp.arrayBuffer();
+
+    await new Promise(r => setTimeout(r, 30));
+
+    // Parse with XLSX — same as file upload
+    const wb = XLSX.read(arrayBuffer, {
+      type: 'array',
+      cellDates: true,
+      cellNF: false,
+      cellHTML: false,
+      cellStyles: false
+    });
+
+    // Sheet 1 — riego
+    updateLoadMsg('Procesando hoja 1...');
+    const sheet1 = wb.Sheets[wb.SheetNames[0]];
+    const json1 = XLSX.utils.sheet_to_json(sheet1, { defval: null, raw: false });
+    if (!json1.length || !json1[0].hasOwnProperty('semana')) {
+      throw new Error('Formato inválido: falta columna "semana". Verifica que sea el archivo correcto.');
+    }
+
+    // Sheet 2 — cosecha (optional)
+    updateLoadMsg('Procesando hoja 2 (cosecha)...');
     let json2 = [];
-    for (const gid of ['1','2','3','4']) {
+    if (wb.SheetNames.length > 1) {
       try {
-        const url2 = buildCSVUrl(raw, gid);
-        const resp2 = await fetch(url2 + '&cachebust=' + Date.now());
-        if (resp2.ok) {
-          const csv2 = await resp2.text();
-          const rows = parseCSV(csv2, true); // raw mode
-          if (rows.length > 0) {
-            json2 = rows;
-            break;
+        const sheet2 = wb.Sheets[wb.SheetNames[1]];
+        const raw2 = XLSX.utils.sheet_to_json(sheet2, { defval: null, header: 1, raw: false });
+        let hdrIdx = -1;
+        for (let i = 0; i < Math.min(10, raw2.length); i++) {
+          if (raw2[i] && raw2[i].some(c => c === 'EQ-TR')) { hdrIdx = i; break; }
+        }
+        if (hdrIdx >= 0) {
+          const hdrs = raw2[hdrIdx];
+          const eqtrCol = hdrs.indexOf('EQ-TR');
+          for (let i = hdrIdx + 1; i < raw2.length; i++) {
+            const row = raw2[i];
+            if (!row || !row[eqtrCol]) continue;
+            const obj = {};
+            hdrs.forEach((h, j) => { if (h != null) obj[h] = row[j] ?? null; });
+            json2.push(obj);
           }
         }
-      } catch(e) {}
+      } catch(e2) { console.warn('Hoja2 error:', e2); }
     }
 
     updateLoadMsg('Generando dashboard...');
     await new Promise(r => setTimeout(r, 30));
 
-    // REPLACE data
+    // REPLACE — never accumulate
     RAW     = parseData(json1);
-    HARVEST = parseHarvest(processHarvestCSV(json2));
+    HARVEST = parseHarvest(json2);
     Object.keys(MS).forEach(k => { MS[k].sel = new Set(); });
     DET_TAB = 'TOTAL'; SEM_TAB = null;
 
-    // Start auto-refresh if not already running
+    // Start auto-refresh every 5 min
     if (!refreshInterval) {
       refreshInterval = setInterval(() => loadFromSheets(true), 5 * 60 * 1000);
       const badge = document.getElementById('auto-refresh-badge');
@@ -2230,65 +2262,14 @@ async function loadFromSheets(isAutoRefresh) {
 
   } catch(err) {
     showLoading(false);
-    const errEl = document.getElementById('sheets-error');
-    if (errEl) { errEl.style.display = 'block'; errEl.textContent = '⚠ ' + err.message; }
-    console.error('[Sheets]', err);
+    showSheetsError('⚠ ' + err.message);
+    console.error('[OneDrive]', err);
   }
 }
 
-// ── Parse CSV text into array of objects (like XLSX sheet_to_json) ──
-function parseCSV(csvText) {
-  const lines = csvText.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
-  if (lines.length < 2) return [];
-  // Parse header
-  const headers = splitCSVLine(lines[0]);
-  const result = [];
-  for (let i = 1; i < lines.length; i++) {
-    if (!lines[i].trim()) continue;
-    const vals = splitCSVLine(lines[i]);
-    const obj = {};
-    headers.forEach((h, j) => {
-      if (h) obj[h.trim()] = vals[j] !== undefined ? vals[j].trim() : null;
-    });
-    result.push(obj);
-  }
-  return result;
-}
-
-// ── Parse CSV preserving raw rows (for harvest sheet with header in row 5) ──
-function processHarvestCSV(rows) {
-  if (!rows.length) return [];
-  // Find header row containing 'EQ-TR'
-  let hdrIdx = -1;
-  for (let i = 0; i < Math.min(15, rows.length); i++) {
-    const vals = Object.values(rows[i]);
-    if (vals.some(v => v && v.toString().trim() === 'EQ-TR')) { hdrIdx = i; break; }
-  }
-  if (hdrIdx < 0) return rows; // fallback: already parsed with correct headers
-  // Re-parse from hdrIdx
-  const hdrs = Object.values(rows[hdrIdx]);
-  const result = [];
-  for (let i = hdrIdx + 1; i < rows.length; i++) {
-    const vals = Object.values(rows[i]);
-    const eqtrIdx = hdrs.findIndex(h => h && h.toString().trim() === 'EQ-TR');
-    if (!vals[eqtrIdx]) continue;
-    const obj = {};
-    hdrs.forEach((h, j) => { if (h) obj[h.toString().trim()] = vals[j] || null; });
-    result.push(obj);
-  }
-  return result;
-}
-
-function splitCSVLine(line) {
-  const result = [];
-  let cur = '', inQuote = false;
-  for (let i = 0; i < line.length; i++) {
-    if (line[i] === '"') { inQuote = !inQuote; }
-    else if (line[i] === ',' && !inQuote) { result.push(cur); cur = ''; }
-    else { cur += line[i]; }
-  }
-  result.push(cur);
-  return result;
+function showSheetsError(msg) {
+  const el = document.getElementById('sheets-error');
+  if (el) { el.style.display = 'block'; el.textContent = msg; }
 }
 
 // ── Last updated badge ──
