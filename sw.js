@@ -1,7 +1,7 @@
 // ── Auto-versioned cache ──
 // IMPORTANTE: Cambia VERSION cada vez que actualices archivos
 // v1 → v2 → v3 → etc.
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = 'riego-' + VERSION;
 
 const ASSETS = [
