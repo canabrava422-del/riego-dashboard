@@ -1153,17 +1153,26 @@ function parseHarvest(rows) {
   return rows.map(r => {
     // Parse FCosecha
     const fCosecha = parseXLDate(r['FCosecha']);
-    // Parse Agoste
+    // Parse Agoste — usar parseXLDate para manejar Date, number y string
     let agosteFecha = null, agosteStr = null;
     const ag = r['Agoste'];
-    if (ag instanceof Date) { agosteFecha = ag; agosteStr = ag.toISOString().slice(0,10); }
-    else if (typeof ag === 'number') { agosteFecha = new Date(Math.round((ag-25569)*86400*1000)); agosteStr = agosteFecha.toISOString().slice(0,10); }
-    else if (typeof ag === 'string' && ag.trim()) agosteStr = ag.trim();
-    // Days to agoste
+    if (ag !== null && ag !== undefined && ag !== '') {
+      // Intentar parsear como fecha
+      agosteFecha = parseXLDate(ag);
+      if (agosteFecha && !isNaN(agosteFecha)) {
+        agosteStr = agosteFecha.toISOString().slice(0,10);
+      } else {
+        // No es fecha — es texto como "En cosecha", guardar como string
+        agosteFecha = null;
+        agosteStr = typeof ag === 'string' ? ag.trim() : String(ag);
+      }
+    }
+    // Days to agoste = fecha agoste - hoy
     let diasAgoste = null;
-    if (agosteFecha) {
-      const diff = agosteFecha - today;
-      diasAgoste = Math.ceil(diff / (1000*60*60*24));
+    if (agosteFecha && !isNaN(agosteFecha)) {
+      agosteFecha.setHours(0,0,0,0);
+      const diff = agosteFecha.getTime() - today.getTime();
+      diasAgoste = Math.ceil(diff / (1000 * 60 * 60 * 24));
     }
     return {
       eqtr:       (r['EQ-TR']||'').toString().trim(),
@@ -1916,15 +1925,77 @@ function renderCosecha(data) {
   // ── Chart: distribución días a agoste ──
   dc('ch-cos-agoste');
   const diasArr = hFiltered.filter(h=>h.diasAgoste!==null).map(h=>h.diasAgoste);
-  const bins = [{l:'Vencido',mn:-9999,mx:0,c:'#ef4444'},{l:'0–30d',mn:0,mx:30,c:'#fb923c'},
-                {l:'31–60d',mn:30,mx:60,c:'#f59e0b'},{l:'61–90d',mn:60,mx:90,c:'#facc15'},
-                {l:'>90d',mn:90,mx:9999,c:'#10b981'}];
-  charts['ch-cos-agoste'] = new Chart(document.getElementById('ch-cos-agoste').getContext('2d'), {
-    type:'doughnut',
-    data:{labels:bins.map(b=>b.l), datasets:[{data:bins.map(b=>diasArr.filter(d=>d>=b.mn&&d<b.mx).length),
-      backgroundColor:bins.map(b=>b.c+'cc'),borderColor:bins.map(b=>b.c),borderWidth:2,hoverOffset:5}]},
-    options:{responsive:true,animation:false,plugins:{legend:{position:'right',labels:{color:'#cbd5e1',font:{size:10},boxWidth:10}}}}
-  });
+  const agosteCtx = document.getElementById('ch-cos-agoste');
+  const agosteContainer = agosteCtx ? agosteCtx.parentElement : null;
+
+  if (diasArr.length === 0) {
+    // Sin datos — mostrar mensaje en lugar de gráfico vacío
+    if (agosteContainer) {
+      agosteContainer.innerHTML = '<div class="empty" style="padding:3rem 1rem">Sin datos de fecha de agoste.<br><span style=\'font-size:.72rem;color:var(--text4)\'>Verifica que la columna "Agoste" en Hoja2 tenga fechas válidas.</span></div>';
+    }
+  } else {
+    // Reconstruir canvas si fue reemplazado por mensaje
+    if (agosteContainer && !agosteContainer.querySelector('canvas')) {
+      agosteContainer.innerHTML = '<canvas id="ch-cos-agoste" height="230"></canvas>';
+    }
+    const agosteCanvas = document.getElementById('ch-cos-agoste');
+    if (agosteCanvas) {
+      const agesteBins = [
+        {l:'Agostado',  mn:-9999, mx:0,   c:'#ef4444'},
+        {l:'0–30 días', mn:0,     mx:30,  c:'#fb923c'},
+        {l:'31–60 días',mn:30,    mx:60,  c:'#fbbf24'},
+        {l:'61–90 días',mn:60,    mx:90,  c:'#facc15'},
+        {l:'>90 días',  mn:90,    mx:9999,c:'#4ade80'}
+      ];
+      const agesteCounts = agesteBins.map(b => diasArr.filter(d => d >= b.mn && d < b.mx).length);
+      charts['ch-cos-agoste'] = new Chart(agosteCanvas.getContext('2d'), {
+        type:'doughnut',
+        data:{
+          labels: agesteBins.map(b=>b.l),
+          datasets:[{
+            data: agesteCounts,
+            backgroundColor: agesteBins.map(b=>b.c+'cc'),
+            borderColor: agesteBins.map(b=>b.c),
+            borderWidth:2, hoverOffset:6
+          }]
+        },
+        options:{
+          responsive:true, animation:false,
+          cutout:'55%',
+          plugins:{
+            legend:{
+              position:'right',
+              labels:{
+                color:'#cbd5e1', font:{size:10}, boxWidth:11, padding:8,
+                generateLabels: chart => {
+                  const ds = chart.data.datasets[0];
+                  return chart.data.labels.map((lbl,i) => ({
+                    text: `${agesteBins[i].l}  (${agesteCounts[i]})`,
+                    fontColor:'#cbd5e1',
+                    fillStyle: ds.backgroundColor[i],
+                    strokeStyle: ds.borderColor[i],
+                    lineWidth:2,
+                    hidden: agesteCounts[i]===0,
+                    index:i
+                  }));
+                }
+              }
+            },
+            tooltip:{
+              callbacks:{
+                label: ctx => {
+                  const cnt = ctx.parsed;
+                  const tot = diasArr.length;
+                  const pct2 = tot > 0 ? (cnt/tot*100).toFixed(1) : 0;
+                  return ` ${agesteBins[ctx.dataIndex].l}: ${cnt} EQ-TR (${pct2}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+  }
 
   // ── Lista días a agoste ──
   const agosteSorted = hFiltered.filter(h=>h.diasAgoste!==null).sort((a,b)=>a.diasAgoste-b.diasAgoste);
@@ -1945,9 +2016,10 @@ function renderCosecha(data) {
       <td><span class="bdg" style="background:${col}20;color:${col}">${lbl}</span></td></tr>`;
   });
   agosteSinFecha.forEach(h => {
+    const txt = h.agosteStr && h.agosteStr !== '' ? h.agosteStr : 'Sin fecha';
     listHTML += `<tr><td class="m" style="color:var(--blue)">${h.eqtr}</td>
-      <td class="r m" style="color:var(--text4)">Sin fecha</td>
-      <td><span class="bdg n0">Sin fecha</span></td></tr>`;
+      <td class="r m" style="color:var(--text4)">${txt}</td>
+      <td><span class="bdg n0">${txt}</span></td></tr>`;
   });
   listHTML += '</tbody></table>';
   document.getElementById('agoste-list').innerHTML = listHTML;
@@ -1969,7 +2041,7 @@ function renderCosecha(data) {
       <td class="m">${h.agosteStr||'—'}</td>
       <td class="r m" style="color:${dCol};font-weight:500">${
         d === null
-          ? (h.agosteStr || '—')
+          ? 'Sin fecha'
           : d <= 0
             ? 'Agostado'
             : d === 1
