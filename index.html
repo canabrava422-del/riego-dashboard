@@ -594,6 +594,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
     <button class="snav-btn" onclick="showSection('fallas',event)">Fallas</button>
     <button class="snav-btn" onclick="showSection('detalle',event)">Detalle</button>
     <button class="snav-btn" onclick="showSection('cosecha',event)">🌾 Cosecha</button>
+    <button class="snav-btn" onclick="showSection('programa',event)">📋 Programa</button>
+    <button class="snav-btn" onclick="showSection('caudales',event)">💧 Caudales</button>
   </div>
 
   <!-- FILTERS -->
@@ -897,6 +899,84 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
       </div>
     </div>
 
+    <!-- ═══ PROGRAMA DE RIEGO (Hoja3) ══════════════════════════════ -->
+    <div class="section" id="sec-programa">
+      <div class="kpi-grid" id="prog-kpis" style="margin-bottom:1rem"></div>
+      <div class="g">
+        <div class="panel c6">
+          <div class="ph"><div class="pt">Tiempo de riego por EQ-TR <span style="font-size:.68rem;color:var(--text3)">(h)</span></div></div>
+          <div class="chart-wrap"><canvas id="ch-prog-tiempo" height="240"></canvas></div>
+        </div>
+        <div class="panel c6">
+          <div class="ph"><div class="pt">ETc vs ETo por EQ-TR <span style="font-size:.68rem;color:var(--text3)">(mm/día)</span></div></div>
+          <div class="chart-wrap"><canvas id="ch-prog-etc" height="240"></canvas></div>
+        </div>
+      </div>
+      <div class="g">
+        <div class="panel c4">
+          <div class="ph"><div class="pt">Distribución por textura de suelo</div></div>
+          <div class="chart-wrap" style="max-height:220px"><canvas id="ch-prog-textura" height="220"></canvas></div>
+        </div>
+        <div class="panel c8">
+          <div class="ph"><div class="pt">% Humedad en campo (Sem. 21 vs Sem. 22)</div></div>
+          <div class="chart-wrap"><canvas id="ch-prog-hum" height="220"></canvas></div>
+        </div>
+      </div>
+      <div class="g">
+        <div class="panel c12">
+          <div class="ph"><div class="pt">Tabla de programa de riego · detalle por EQ-TR</div></div>
+          <div class="tw">
+            <table class="tbl">
+              <thead><tr>
+                <th>EQ-TR</th><th>EQ</th><th>TR</th><th>Textura</th>
+                <th class="r">Área</th><th class="r">Edad</th><th class="r">Kc</th>
+                <th class="r">ETc mm/d</th><th class="r">T.Riego (h)</th>
+                <th class="r">Frec. (h)</th><th class="r">AFA mm</th>
+                <th class="r">PSM %</th><th class="r">Hum S21</th><th class="r">Hum S22</th>
+              </tr></thead>
+              <tbody id="tbody-programa"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ DESVIACIÓN DE CAUDALES (Hoja4) ══════════════════════════════ -->
+    <div class="section" id="sec-caudales">
+      <div class="kpi-grid" id="caud-kpis" style="margin-bottom:1rem"></div>
+      <div class="g">
+        <div class="panel c8">
+          <div class="ph"><div class="pt">Desviación media de caudal por EQ-TR <span style="font-size:.68rem;color:var(--text3)">(%)</span></div></div>
+          <div class="chart-wrap"><canvas id="ch-caud-media" height="260"></canvas></div>
+        </div>
+        <div class="panel c4">
+          <div class="ph"><div class="pt">Distribución de desviaciones</div></div>
+          <div class="chart-wrap" style="max-height:260px"><canvas id="ch-caud-dist" height="260"></canvas></div>
+        </div>
+      </div>
+      <div class="g">
+        <div class="panel c12">
+          <div class="ph"><div class="pt">Evolución temporal de desviación · últimas semanas registradas</div></div>
+          <div class="chart-wrap"><canvas id="ch-caud-evol" height="220"></canvas></div>
+        </div>
+      </div>
+      <div class="g">
+        <div class="panel c12">
+          <div class="ph"><div class="pt">Resumen de desviaciones por EQ-TR</div></div>
+          <div class="tw">
+            <table class="tbl">
+              <thead><tr>
+                <th>EQ-TR</th><th>EQ</th><th>TR</th><th class="r">Caudal Diseño</th>
+                <th class="r">Registros</th><th class="r">Desv. Media %</th>
+                <th class="r">Desv. Mín %</th><th class="r">Desv. Máx %</th><th>Estado</th>
+              </tr></thead>
+              <tbody id="tbody-caudales"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /main -->
 
   <!-- MOBILE FILTER OVERLAY + DRAWER -->
@@ -960,6 +1040,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 // ═══════════════════════════════════════════════
 let RAW = [];
 let HARVEST = [];   // hoja2: proyección de cosecha
+let PROGRAMA = [];  // hoja3: programa de riego
+let CAUDALES = [];  // hoja4: desviación de caudales
 let LEVEL = 'EQ';
 let ACUM_MODE = 'semana';
 let SEM_MODE = 'line';
@@ -1142,6 +1224,24 @@ function handleFile(file) {
               // REPLACE — never accumulate
               RAW     = parseData(json1);
               HARVEST = parseHarvest(json2);
+              // Hoja3 — programa de riego
+              PROGRAMA = [];
+              if (wb.SheetNames.length > 2) {
+                try {
+                  const s3 = wb.Sheets[wb.SheetNames[2]];
+                  const j3 = XLSX.utils.sheet_to_json(s3, { defval:null, raw:true });
+                  PROGRAMA = parsePrograma(j3);
+                } catch(e3) { console.warn('Hoja3 error:', e3); }
+              }
+              // Hoja4 — desviación de caudales
+              CAUDALES = [];
+              if (wb.SheetNames.length > 3) {
+                try {
+                  const s4 = wb.Sheets[wb.SheetNames[3]];
+                  const j4 = XLSX.utils.sheet_to_json(s4, { defval:null, raw:true, header:1 });
+                  CAUDALES = parseCaudales(j4);
+                } catch(e4) { console.warn('Hoja4 error:', e4); }
+              }
               Object.keys(MS).forEach(k => { MS[k].sel = new Set(); });
               DET_TAB = 'TOTAL'; SEM_TAB = null;
               initDashboard();
@@ -1250,13 +1350,97 @@ function parseHarvest(rows) {
   }).filter(r => r.eqtr && r.eqtr !== 'EQ-TR');
 }
 
+// ═══════════════════════════════════════════════
+//  PARSE PROGRAMA (Hoja3)
+// ═══════════════════════════════════════════════
+function parsePrograma(rows) {
+  return rows.map(r => {
+    const n = v => { const x = parseFloat(v); return isNaN(x) ? null : x; };
+    const s = v => (v != null && v !== '') ? String(v).trim() : null;
+    return {
+      eqtr:     s(r['EQ-TR']),
+      eq:       s(r['EQ']),
+      tr:       s(r['TR']),
+      conc:     s(r['Conc']),
+      area:     n(r['Área']),
+      textura:  s(r['Textura']),
+      anio:     n(r['Año']),
+      edad:     n(r['Edad']),
+      semCult:  n(r['Sem. Cultivo']),
+      eto:      n(r['ETo mm/día']),
+      kc:       n(r['Kc']),
+      etc:      n(r['ETc mm/día']),
+      tRiego:   n(r['Tiempo de riego (h)']),
+      factorP:  n(r['Factor P']),
+      psm:      n(r['Porcentaje de suelo mojado (PSM)']),
+      afa:      n(r['AFA mm']),
+      frecRiego: n(r['Frecuencia riego (hrs)']),
+      cdc:      n(r['Cdc-Pmp']),
+      hum21:    n(r['% Humedad  Semana 21']),
+      hum22:    n(r['% Humedad  Semana 22']),
+    };
+  }).filter(r => r.eqtr && r.eqtr !== 'EQ-TR');
+}
+
+// ═══════════════════════════════════════════════
+//  PARSE CAUDALES (Hoja4) — wide format, semanas como columnas
+// ═══════════════════════════════════════════════
+function parseCaudales(rawRows) {
+  // rawRows[0] = header row: EQ-TTR, MF, FD, EQ, TR, Safra, Area, Caudal(Diseño), Edad, 1, 31, 30, ...
+  // rawRows[1..2] = month/day sub-headers → skip
+  // rawRows[3+] = data rows
+  if (!rawRows || rawRows.length < 4) return [];
+  const hdrs = rawRows[0];
+  const weekCols = []; // { idx, semLabel }
+  // Columns 9+ are week numbers (numeric or string numbers)
+  for (let i = 9; i < hdrs.length; i++) {
+    const h = hdrs[i];
+    if (h != null && h !== '') weekCols.push({ idx: i, sem: String(h) });
+  }
+  // Month labels from row 1
+  const monthRow = rawRows[1] || [];
+  const dayRow   = rawRows[2] || [];
+  // Build a label like "Sem 31 (May 26)"
+  weekCols.forEach(wc => {
+    const mo = monthRow[wc.idx] || '';
+    const da = dayRow[wc.idx]   || '';
+    wc.label = `Sem ${wc.sem}${mo ? ' · ' + mo + (da ? ' ' + da : '') : ''}`;
+  });
+
+  const eqtrIdx = 0, eqIdx = 3, trIdx = 4, caudalIdx = 7;
+  const result = [];
+  for (let i = 3; i < rawRows.length; i++) {
+    const row = rawRows[i];
+    if (!row || !row[eqtrIdx]) continue;
+    const eqtr = String(row[eqtrIdx]).trim();
+    if (!eqtr || eqtr === 'EQ-TTR') continue;
+    const desvs = [];
+    weekCols.forEach(wc => {
+      const v = row[wc.idx];
+      if (v != null && v !== '' && !isNaN(parseFloat(v))) {
+        desvs.push({ sem: wc.sem, label: wc.label, val: parseFloat(v) });
+      }
+    });
+    result.push({
+      eqtr,
+      eq:       row[eqIdx]   != null ? String(row[eqIdx]).trim()   : '',
+      tr:       row[trIdx]   != null ? String(row[trIdx]).trim()   : '',
+      caudal:   parseFloat(row[caudalIdx]) || null,
+      desvs,
+    });
+  }
+  return result;
+}
+
 function showLoading(v) { document.getElementById('loading').style.display = v?'flex':'none'; }
 
 function resetUpload() {
   // Destroy all charts to free memory
   Object.keys(charts).forEach(k => { try { charts[k].destroy(); } catch(e){} delete charts[k]; });
   RAW = [];
-  document.getElementById('dashboard').style.display = 'none';
+  HARVEST = [];
+  PROGRAMA = [];
+  CAUDALES = [];
   document.getElementById('upload-screen').style.display = 'flex';
   document.getElementById('file-name').textContent = '';
   fileInput.value = '';
@@ -1406,6 +1590,8 @@ function renderSection(id, data) {
   if(id==='fallas')    renderFallas(data);
   if(id==='detalle')   renderDetalle(data);
   if(id==='cosecha')   renderCosecha(data);
+  if(id==='programa')  renderPrograma();
+  if(id==='caudales')  renderCaudales();
 }
 
 // ═══════════════════════════════════════════════
@@ -2120,6 +2306,248 @@ function renderCosecha(data) {
 }
 
 
+
+
+// ═══════════════════════════════════════════════
+//  RENDER PROGRAMA (Hoja3)
+// ═══════════════════════════════════════════════
+function renderPrograma() {
+  if (!PROGRAMA.length) {
+    document.getElementById('prog-kpis').innerHTML = '<div class="empty" style="grid-column:span 4">No hay datos de programa de riego (Hoja3 no detectada en el archivo)</div>';
+    return;
+  }
+
+  const fmt1 = v => v != null ? v.toFixed(1) : '—';
+  const fmt2 = v => v != null ? v.toFixed(2) : '—';
+  const fmtN = v => v != null ? Math.round(v) : '—';
+
+  // KPIs
+  const valKc = PROGRAMA.filter(r=>r.kc!=null).map(r=>r.kc);
+  const avgKc = valKc.length ? (valKc.reduce((a,b)=>a+b,0)/valKc.length).toFixed(2) : '—';
+  const valEtc = PROGRAMA.filter(r=>r.etc!=null).map(r=>r.etc);
+  const avgEtc = valEtc.length ? (valEtc.reduce((a,b)=>a+b,0)/valEtc.length).toFixed(2) : '—';
+  const valT = PROGRAMA.filter(r=>r.tRiego!=null).map(r=>r.tRiego);
+  const avgT = valT.length ? (valT.reduce((a,b)=>a+b,0)/valT.length).toFixed(1) : '—';
+  const nEqtr = PROGRAMA.length;
+
+  document.getElementById('prog-kpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-val">${nEqtr}</div><div class="kpi-lbl">EQ-TR en programa</div></div>
+    <div class="kpi-card"><div class="kpi-val">${avgKc}</div><div class="kpi-lbl">Kc promedio</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:var(--blue)">${avgEtc} <span style="font-size:.65rem;font-weight:400">mm/d</span></div><div class="kpi-lbl">ETc promedio</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:var(--green)">${avgT} <span style="font-size:.65rem;font-weight:400">h</span></div><div class="kpi-lbl">T. riego promedio</div></div>
+  `;
+
+  // Chart: Tiempo de riego por EQ-TR (top 20 for legibility)
+  const sorted = [...PROGRAMA].filter(r=>r.tRiego!=null).sort((a,b)=>b.tRiego-a.tRiego).slice(0,24);
+  if (charts['prog-tiempo']) charts['prog-tiempo'].destroy();
+  const ctxT = document.getElementById('ch-prog-tiempo').getContext('2d');
+  charts['prog-tiempo'] = new Chart(ctxT, {
+    type:'bar',
+    data:{
+      labels: sorted.map(r=>r.eqtr),
+      datasets:[{ label:'T. Riego (h)', data: sorted.map(r=>r.tRiego),
+        backgroundColor: sorted.map(r => r.tRiego > 8 ? '#3b82f6' : r.tRiego > 5 ? '#10b981' : '#f59e0b'),
+        borderRadius:3, barPercentage:.75 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
+      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:60}, grid:{color:'#1e2d45'} },
+               y:{ ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'#1e2d45'} } } }
+  });
+
+  // Chart: ETc vs ETo
+  const etcRows = [...PROGRAMA].filter(r=>r.etc!=null&&r.eto!=null).sort((a,b)=>b.etc-a.etc).slice(0,24);
+  if (charts['prog-etc']) charts['prog-etc'].destroy();
+  const ctxE = document.getElementById('ch-prog-etc').getContext('2d');
+  charts['prog-etc'] = new Chart(ctxE, {
+    type:'bar',
+    data:{
+      labels: etcRows.map(r=>r.eqtr),
+      datasets:[
+        { label:'ETc', data: etcRows.map(r=>r.etc), backgroundColor:'rgba(59,130,246,.8)', borderRadius:3, barPercentage:.5 },
+        { label:'ETo', data: etcRows.map(r=>r.eto), backgroundColor:'rgba(16,185,129,.6)', borderRadius:3, barPercentage:.5 }
+      ]
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{color:'#94a3b8',font:{size:10}} } },
+      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:60}, grid:{color:'#1e2d45'} },
+               y:{ ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'#1e2d45'} } } }
+  });
+
+  // Chart: Textura donut
+  const texMap = {};
+  PROGRAMA.forEach(r => { if(r.textura){ texMap[r.textura]=(texMap[r.textura]||0)+1; } });
+  const texLabels = Object.keys(texMap);
+  const PIECOLS = ['#3b82f6','#10b981','#f59e0b','#a78bfa','#ef4444','#06b6d4','#ec4899'];
+  if (charts['prog-textura']) charts['prog-textura'].destroy();
+  const ctxTx = document.getElementById('ch-prog-textura').getContext('2d');
+  charts['prog-textura'] = new Chart(ctxTx, {
+    type:'doughnut',
+    data:{ labels: texLabels, datasets:[{ data: texLabels.map(t=>texMap[t]),
+      backgroundColor: PIECOLS.slice(0,texLabels.length), borderWidth:0 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom', labels:{color:'#94a3b8',font:{size:10},padding:8} } } }
+  });
+
+  // Chart: Humedad S21 vs S22
+  const humRows = PROGRAMA.filter(r=>r.hum21!=null||r.hum22!=null).slice(0,28);
+  if (charts['prog-hum']) charts['prog-hum'].destroy();
+  const ctxH = document.getElementById('ch-prog-hum').getContext('2d');
+  charts['prog-hum'] = new Chart(ctxH, {
+    type:'bar',
+    data:{
+      labels: humRows.map(r=>r.eqtr),
+      datasets:[
+        { label:'Hum S21 (%)', data: humRows.map(r=>r.hum21!=null?+(r.hum21*100).toFixed(1):null),
+          backgroundColor:'rgba(167,139,250,.8)', borderRadius:3, barPercentage:.5 },
+        { label:'Hum S22 (%)', data: humRows.map(r=>r.hum22!=null?+(r.hum22*100).toFixed(1):null),
+          backgroundColor:'rgba(59,130,246,.7)', borderRadius:3, barPercentage:.5 }
+      ]
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{color:'#94a3b8',font:{size:10}} } },
+      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:60}, grid:{color:'#1e2d45'} },
+               y:{ ticks:{ color:'#94a3b8',font:{size:10},
+                   callback: v => v + '%' }, grid:{color:'#1e2d45'} } } }
+  });
+
+  // Table
+  document.getElementById('tbody-programa').innerHTML = PROGRAMA.map(r => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:.71rem">${r.eqtr||'—'}</td>
+      <td style="font-size:.71rem">${r.eq||'—'}</td>
+      <td style="font-size:.71rem">${r.tr||'—'}</td>
+      <td style="font-size:.71rem">${r.textura||'—'}</td>
+      <td class="r">${r.area!=null?r.area.toFixed(1):'—'}</td>
+      <td class="r">${r.edad!=null?Math.round(r.edad):'—'}</td>
+      <td class="r">${fmt2(r.kc)}</td>
+      <td class="r">${fmt2(r.etc)}</td>
+      <td class="r">${fmt1(r.tRiego)}</td>
+      <td class="r">${fmt1(r.frecRiego)}</td>
+      <td class="r">${fmt2(r.afa)}</td>
+      <td class="r">${r.psm!=null?(r.psm*100).toFixed(0)+'%':'—'}</td>
+      <td class="r" style="color:${r.hum21!=null?'#a78bfa':'#475569'}">${r.hum21!=null?(r.hum21*100).toFixed(1)+'%':'—'}</td>
+      <td class="r" style="color:${r.hum22!=null?'#3b82f6':'#475569'}">${r.hum22!=null?(r.hum22*100).toFixed(1)+'%':'—'}</td>
+    </tr>`).join('') || '<tr><td colspan="14" class="empty">Sin datos</td></tr>';
+}
+
+// ═══════════════════════════════════════════════
+//  RENDER CAUDALES (Hoja4)
+// ═══════════════════════════════════════════════
+function renderCaudales() {
+  if (!CAUDALES.length) {
+    document.getElementById('caud-kpis').innerHTML = '<div class="empty" style="grid-column:span 4">No hay datos de caudales (Hoja4 no detectada en el archivo)</div>';
+    return;
+  }
+
+  // Aggregate stats per EQ-TR
+  const stats = CAUDALES.map(r => {
+    const vals = r.desvs.map(d=>d.val).filter(v=>v!=null);
+    const avg  = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
+    const mn   = vals.length ? Math.min(...vals) : null;
+    const mx   = vals.length ? Math.max(...vals) : null;
+    return { ...r, avg, mn, mx, n: vals.length };
+  });
+
+  // KPIs
+  const withData = stats.filter(r=>r.avg!=null);
+  const globalAvg = withData.length ? withData.reduce((a,b)=>a+b.avg,0)/withData.length : null;
+  const critCount = withData.filter(r=>r.avg < -20).length;
+  const okCount   = withData.filter(r=>r.avg >= -10 && r.avg <= 10).length;
+
+  document.getElementById('caud-kpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-val">${CAUDALES.length}</div><div class="kpi-lbl">EQ-TR monitoreados</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:${globalAvg!=null&&globalAvg<-10?'#ef4444':'#10b981'}">${globalAvg!=null?globalAvg.toFixed(1)+'%':'—'}</div><div class="kpi-lbl">Desviación media global</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:#ef4444">${critCount}</div><div class="kpi-lbl">EQ-TR con desv. crítica (&lt;−20%)</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:#10b981">${okCount}</div><div class="kpi-lbl">EQ-TR en rango normal (±10%)</div></div>
+  `;
+
+  // Chart: Mean deviation per EQ-TR (sorted)
+  const sorted = [...stats].filter(r=>r.avg!=null).sort((a,b)=>a.avg-b.avg);
+  if (charts['caud-media']) charts['caud-media'].destroy();
+  const ctxM = document.getElementById('ch-caud-media').getContext('2d');
+  charts['caud-media'] = new Chart(ctxM, {
+    type:'bar',
+    data:{
+      labels: sorted.map(r=>r.eqtr),
+      datasets:[{ label:'Desv. media %', data: sorted.map(r=>+(r.avg.toFixed(1))),
+        backgroundColor: sorted.map(r => r.avg < -20 ? '#ef4444' : r.avg < -10 ? '#f59e0b' : r.avg > 10 ? '#7dd3fc' : '#10b981'),
+        borderRadius:3, barPercentage:.7 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx => ` ${ctx.parsed.x.toFixed(1)}%` } } },
+      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+'%'}, grid:{color:'#1e2d45'} },
+               y:{ ticks:{color:'#94a3b8',font:{size:9}}, grid:{color:'#1e2d45'} } } }
+  });
+
+  // Chart: Distribution donut (critical / alert / normal / over)
+  const nCrit  = withData.filter(r=>r.avg < -20).length;
+  const nAlert = withData.filter(r=>r.avg >= -20 && r.avg < -10).length;
+  const nNorm  = withData.filter(r=>r.avg >= -10 && r.avg <= 10).length;
+  const nOver  = withData.filter(r=>r.avg > 10).length;
+  if (charts['caud-dist']) charts['caud-dist'].destroy();
+  const ctxD = document.getElementById('ch-caud-dist').getContext('2d');
+  charts['caud-dist'] = new Chart(ctxD, {
+    type:'doughnut',
+    data:{
+      labels:['Crítico (<−20%)', 'Alerta (−20 a −10%)', 'Normal (±10%)', 'Por encima (>+10%)'],
+      datasets:[{ data:[nCrit,nAlert,nNorm,nOver],
+        backgroundColor:['#ef4444','#f59e0b','#10b981','#7dd3fc'], borderWidth:0 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom', labels:{color:'#94a3b8',font:{size:9},padding:6} } } }
+  });
+
+  // Chart: Evolution over time (line, top 6 EQ-TR by # records)
+  const top6 = [...stats].filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,6);
+  // Collect all unique sem labels in order
+  const semSet = new Map();
+  CAUDALES.forEach(r => r.desvs.forEach(d => { if(!semSet.has(d.sem)) semSet.set(d.sem, d.label); }));
+  const allSems = [...semSet.keys()]; // original order from header
+  const LINECOLS = ['#3b82f6','#10b981','#f59e0b','#a78bfa','#ef4444','#06b6d4'];
+  if (charts['caud-evol']) charts['caud-evol'].destroy();
+  const ctxEv = document.getElementById('ch-caud-evol').getContext('2d');
+  charts['caud-evol'] = new Chart(ctxEv, {
+    type:'line',
+    data:{
+      labels: allSems.map(s => semSet.get(s)),
+      datasets: top6.map((r,i) => ({
+        label: r.eqtr,
+        data: allSems.map(s => { const d = r.desvs.find(x=>x.sem===s); return d ? d.val : null; }),
+        borderColor: LINECOLS[i], backgroundColor:'transparent',
+        pointRadius:3, pointHoverRadius:5, tension:.3,
+        spanGaps: true, borderWidth:2
+      }))
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{color:'#94a3b8',font:{size:10}} },
+        tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1)}%` } } },
+      scales:{
+        x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:55}, grid:{color:'#1e2d45'} },
+        y:{ ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+'%'}, grid:{color:'#1e2d45'},
+          title:{display:true,text:'Desviación %',color:'#64748b',font:{size:10}} }
+      }
+    }
+  });
+
+  // Table
+  const cldColor = v => v < -20 ? '#ef4444' : v < -10 ? '#f59e0b' : v > 10 ? '#7dd3fc' : '#10b981';
+  const cldLabel = v => v < -20 ? '🔴 Crítico' : v < -10 ? '🟡 Alerta' : v > 10 ? '🔵 Exceso' : '🟢 Normal';
+  document.getElementById('tbody-caudales').innerHTML = stats.map(r => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:.71rem">${r.eqtr}</td>
+      <td style="font-size:.71rem">${r.eq||'—'}</td>
+      <td style="font-size:.71rem">${r.tr||'—'}</td>
+      <td class="r">${r.caudal!=null?r.caudal.toFixed(1):'—'}</td>
+      <td class="r">${r.n}</td>
+      <td class="r" style="color:${r.avg!=null?cldColor(r.avg):'#475569'};font-weight:500">${r.avg!=null?r.avg.toFixed(1)+'%':'—'}</td>
+      <td class="r" style="color:#fca5a5">${r.mn!=null?r.mn.toFixed(1)+'%':'—'}</td>
+      <td class="r" style="color:#86efac">${r.mx!=null?r.mx.toFixed(1)+'%':'—'}</td>
+      <td style="font-size:.72rem">${r.avg!=null?cldLabel(r.avg):'—'}</td>
+    </tr>`).join('') || '<tr><td colspan="9" class="empty">Sin datos</td></tr>';
+}
+
+
 // ═══════════════════════════════════════════════
 //  SOURCE MODE — File vs OneDrive
 // ═══════════════════════════════════════════════
@@ -2247,6 +2675,24 @@ async function loadFromSheets(isAutoRefresh) {
     // REPLACE — never accumulate
     RAW     = parseData(json1);
     HARVEST = parseHarvest(json2);
+    // Hoja3 — programa de riego
+    PROGRAMA = [];
+    if (wb.SheetNames.length > 2) {
+      try {
+        const s3 = wb.Sheets[wb.SheetNames[2]];
+        const j3 = XLSX.utils.sheet_to_json(s3, { defval:null, raw:true });
+        PROGRAMA = parsePrograma(j3);
+      } catch(e3) { console.warn('Hoja3 error:', e3); }
+    }
+    // Hoja4 — desviación de caudales
+    CAUDALES = [];
+    if (wb.SheetNames.length > 3) {
+      try {
+        const s4 = wb.Sheets[wb.SheetNames[3]];
+        const j4 = XLSX.utils.sheet_to_json(s4, { defval:null, raw:true, header:1 });
+        CAUDALES = parseCaudales(j4);
+      } catch(e4) { console.warn('Hoja4 error:', e4); }
+    }
     Object.keys(MS).forEach(k => { MS[k].sel = new Set(); });
     DET_TAB = 'TOTAL'; SEM_TAB = null;
 
