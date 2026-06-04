@@ -32,6 +32,22 @@ html{scroll-behavior:smooth}
   --sab: env(safe-area-inset-bottom, 0px);
   --sal: env(safe-area-inset-left, 0px);
 }
+/* ── LIGHT THEME ── */
+body.light{
+  --bg:#f0f4f8; --surface:#ffffff; --surface2:#f4f6f8; --surface3:#eef0f3;
+  --border:#e2e8f0; --border2:#cbd5e1;
+  --blue:#2563eb; --green:#16a34a; --amber:#b45309; --red:#dc2626; --violet:#7c3aed;
+  --text:#111827; --text2:#374151; --text3:#6b7280; --text4:#9ca3af;
+  --shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
+}
+/* Toggle button */
+#theme-toggle{
+  background:var(--surface2);border:1px solid var(--border2);color:var(--text3);
+  font-size:.8rem;padding:.3rem .6rem;border-radius:6px;cursor:pointer;
+  font-family:var(--sans);transition:all .2s;line-height:1;
+  -webkit-tap-highlight-color:transparent;
+}
+#theme-toggle:hover{border-color:var(--blue);color:var(--blue)}
 
 body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;line-height:1.5;min-height:100vh;
   /* Respetar barra de notificaciones iOS */
@@ -579,6 +595,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
       <button id="filter-toggle" onclick="openFilterDrawer()">
         <span>⚙ Filtros</span><span class="ft-count" id="ft-count"></span>
       </button>
+      <button id="theme-toggle" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
       <button class="btn-sm" onclick="resetUpload()">↩ Nuevo</button>
     </div>
   </div>
@@ -929,7 +946,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
             <table class="tbl">
               <thead><tr>
                 <th>EQ-TR</th><th>EQ</th><th>TR</th><th>Textura</th>
-                <th class="r">Área</th><th class="r">Edad</th><th class="r">Kc</th>
+                <th class="r">Área</th><th class="r">Edad</th>
+                <th class="r">ETo mm/d</th><th class="r">Kc</th>
                 <th class="r">ETc mm/d</th><th class="r">T.Riego (h)</th>
                 <th class="r">Frec. (h)</th><th class="r">AFA mm</th>
                 <th class="r">PSM %</th><th class="r">Hum S21</th><th class="r">Hum S22</th>
@@ -943,10 +961,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 
     <!-- ═══ DESVIACIÓN DE CAUDALES (Hoja4) ══════════════════════════════ -->
     <div class="section" id="sec-caudales">
-      <div class="kpi-grid" id="caud-kpis" style="margin-bottom:1rem"></div>
+      <div class="kpi-grid" id="caud-kpis" style="margin-bottom:1rem;grid-template-columns:repeat(auto-fit,minmax(140px,1fr))"></div>
       <div class="g">
         <div class="panel c8">
-          <div class="ph"><div class="pt">Desviación media de caudal por EQ-TR <span style="font-size:.68rem;color:var(--text3)">(%)</span></div></div>
+          <div class="ph"><div class="pt">Promedio últimos 3 días por EQ-TR <span style="font-size:.68rem;color:var(--text3)">(%)</span> <span style="font-size:.62rem;color:var(--text4)">· filtros aplicados</span></div></div>
           <div class="chart-wrap"><canvas id="ch-caud-media" height="260"></canvas></div>
         </div>
         <div class="panel c4">
@@ -967,7 +985,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
             <table class="tbl">
               <thead><tr>
                 <th>EQ-TR</th><th>EQ</th><th>TR</th><th class="r">Caudal Diseño</th>
-                <th class="r">Registros</th><th class="r">Desv. Media %</th>
+                <th class="r">Registros</th><th class="r">Prom. 3 días %</th>
                 <th class="r">Desv. Mín %</th><th class="r">Desv. Máx %</th><th>Estado</th>
               </tr></thead>
               <tbody id="tbody-caudales"></tbody>
@@ -1376,8 +1394,8 @@ function parsePrograma(rows) {
       afa:      n(r['AFA mm']),
       frecRiego: n(r['Frecuencia riego (hrs)']),
       cdc:      n(r['Cdc-Pmp']),
-      hum21:    n(r['% Humedad  Semana 21']),
-      hum22:    n(r['% Humedad  Semana 22']),
+      hum21:    n(r['% Humedad  Semana 21'] ?? r['% Humedad\nSemana 21'] ?? r['% Humedad Semana 21']),
+      hum22:    n(r['% Humedad  Semana 22'] ?? r['% Humedad\nSemana 22'] ?? r['% Humedad Semana 22']),
     };
   }).filter(r => r.eqtr && r.eqtr !== 'EQ-TR');
 }
@@ -1386,47 +1404,73 @@ function parsePrograma(rows) {
 //  PARSE CAUDALES (Hoja4) — wide format, semanas como columnas
 // ═══════════════════════════════════════════════
 function parseCaudales(rawRows) {
-  // rawRows[0] = header row: EQ-TTR, MF, FD, EQ, TR, Safra, Area, Caudal(Diseño), Edad, 1, 31, 30, ...
-  // rawRows[1..2] = month/day sub-headers → skip
-  // rawRows[3+] = data rows
+  // Structure (from XLSX header:1 parsing):
+  //   rawRows[0] = header: [EQ-TTR, MF, FD, EQ, TR, Safra, Area, Caudal(Diseño), Edad, day1, day2...]
+  //   rawRows[1] = sub-row: [null...null, month1, month2...]  (Jun., May., ...)
+  //   rawRows[2] = sub-row: [null...null, year1,  year2...]   (26, 26, ...) → +2000
+  //   rawRows[3+] = data rows
   if (!rawRows || rawRows.length < 4) return [];
-  const hdrs = rawRows[0];
-  const weekCols = []; // { idx, semLabel }
-  // Columns 9+ are week numbers (numeric or string numbers)
-  for (let i = 9; i < hdrs.length; i++) {
-    const h = hdrs[i];
-    if (h != null && h !== '') weekCols.push({ idx: i, sem: String(h) });
-  }
-  // Month labels from row 1
-  const monthRow = rawRows[1] || [];
-  const dayRow   = rawRows[2] || [];
-  // Build a label like "Sem 31 (May 26)"
-  weekCols.forEach(wc => {
-    const mo = monthRow[wc.idx] || '';
-    const da = dayRow[wc.idx]   || '';
-    wc.label = `Sem ${wc.sem}${mo ? ' · ' + mo + (da ? ' ' + da : '') : ''}`;
-  });
 
-  const eqtrIdx = 0, eqIdx = 3, trIdx = 4, caudalIdx = 7;
+  const hdrs    = rawRows[0];   // day numbers in date cols
+  const moRow   = rawRows[1] || [];  // month abbreviations
+  const yrRow   = rawRows[2] || [];  // 2-digit year
+
+  // Month name → number
+  const MMAP = {
+    'Ene.':1,'Feb.':2,'Mar.':3,'Abr.':4,'May.':5,'Jun.':6,
+    'Jul.':7,'Ago.':8,'Sep.':9,'Oct.':10,'Nov.':11,'Dic.':12
+  };
+
+  // Build weekCols with proper date labels (dd/mm/yyyy)
+  const weekCols = [];
+  for (let i = 9; i < hdrs.length; i++) {
+    const dayVal = hdrs[i];
+    if (dayVal == null || dayVal === '') continue;
+    const mo  = String(moRow[i] || '').trim();
+    const yr  = yrRow[i];
+    const moN = MMAP[mo] || null;
+    const day = parseInt(dayVal);
+    let label;
+    if (!isNaN(day) && moN && yr) {
+      const fullYr = parseInt(yr) + 2000;
+      label = `${String(day).padStart(2,'0')}/${String(moN).padStart(2,'0')}/${fullYr}`;
+    } else {
+      label = String(dayVal);
+    }
+    weekCols.push({ idx: i, dayVal: day, mo: moN, yr: yr ? parseInt(yr)+2000 : null, label });
+  }
+
+  const eqtrIdx = 0, mfIdx = 1, fdIdx = 2, eqIdx = 3, trIdx = 4, caudalIdx = 7;
   const result = [];
   for (let i = 3; i < rawRows.length; i++) {
     const row = rawRows[i];
     if (!row || !row[eqtrIdx]) continue;
     const eqtr = String(row[eqtrIdx]).trim();
     if (!eqtr || eqtr === 'EQ-TTR') continue;
+
     const desvs = [];
     weekCols.forEach(wc => {
       const v = row[wc.idx];
       if (v != null && v !== '' && !isNaN(parseFloat(v))) {
-        desvs.push({ sem: wc.sem, label: wc.label, val: parseFloat(v) });
+        desvs.push({ label: wc.label, val: parseFloat(v), dayVal: wc.dayVal, mo: wc.mo, yr: wc.yr });
       }
     });
+
+    // Last 3 non-null values (most recent = first col order)
+    const last3 = desvs.slice(0, 3).filter(d => d.val != null);
+    const avg3  = last3.length ? +(last3.reduce((a,d)=>a+d.val,0)/last3.length).toFixed(1) : null;
+
     result.push({
       eqtr,
-      eq:       row[eqIdx]   != null ? String(row[eqIdx]).trim()   : '',
-      tr:       row[trIdx]   != null ? String(row[trIdx]).trim()   : '',
-      caudal:   parseFloat(row[caudalIdx]) || null,
+      mf:     row[mfIdx]  != null ? String(row[mfIdx]).trim()  : '',
+      fd:     row[fdIdx]  != null ? String(row[fdIdx]).trim()  : '',
+      eq:     row[eqIdx]  != null ? String(row[eqIdx]).trim()  : '',
+      tr:     row[trIdx]  != null ? String(row[trIdx]).trim()  : '',
+      caudal: parseFloat(row[caudalIdx]) || null,
       desvs,
+      last3,
+      avg3,
+      weekCols,  // store for raw table rendering
     });
   }
   return result;
@@ -2419,6 +2463,7 @@ function renderPrograma() {
       <td style="font-size:.71rem">${r.textura||'—'}</td>
       <td class="r">${r.area!=null?r.area.toFixed(1):'—'}</td>
       <td class="r">${r.edad!=null?Math.round(r.edad):'—'}</td>
+      <td class="r">${fmt2(r.eto)}</td>
       <td class="r">${fmt2(r.kc)}</td>
       <td class="r">${fmt2(r.etc)}</td>
       <td class="r">${fmt1(r.tRiego)}</td>
@@ -2427,7 +2472,7 @@ function renderPrograma() {
       <td class="r">${r.psm!=null?(r.psm*100).toFixed(0)+'%':'—'}</td>
       <td class="r" style="color:${r.hum21!=null?'#a78bfa':'#475569'}">${r.hum21!=null?(r.hum21*100).toFixed(1)+'%':'—'}</td>
       <td class="r" style="color:${r.hum22!=null?'#3b82f6':'#475569'}">${r.hum22!=null?(r.hum22*100).toFixed(1)+'%':'—'}</td>
-    </tr>`).join('') || '<tr><td colspan="14" class="empty">Sin datos</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="15" class="empty">Sin datos</td></tr>';
 }
 
 // ═══════════════════════════════════════════════
@@ -2439,112 +2484,214 @@ function renderCaudales() {
     return;
   }
 
-  // Aggregate stats per EQ-TR
-  const stats = CAUDALES.map(r => {
-    const vals = r.desvs.map(d=>d.val).filter(v=>v!=null);
-    const avg  = vals.length ? vals.reduce((a,b)=>a+b,0)/vals.length : null;
-    const mn   = vals.length ? Math.min(...vals) : null;
-    const mx   = vals.length ? Math.max(...vals) : null;
-    return { ...r, avg, mn, mx, n: vals.length };
+  // ── Apply filters (FD, EQ, EQ-TR) ──
+  const selFD   = getSelMS('ms-fd');
+  const selEQ   = getSelMS('ms-eq');
+  const selEQTR = getSelMS('ms-eqtr');
+  const filtered = CAUDALES.filter(r => {
+    if (selFD.length   && !selFD.includes(r.fd))     return false;
+    if (selEQ.length   && !selEQ.includes(r.eq))     return false;
+    if (selEQTR.length && !selEQTR.includes(r.eqtr)) return false;
+    return true;
   });
 
-  // KPIs
-  const withData = stats.filter(r=>r.avg!=null);
-  const globalAvg = withData.length ? withData.reduce((a,b)=>a+b.avg,0)/withData.length : null;
-  const critCount = withData.filter(r=>r.avg < -20).length;
-  const okCount   = withData.filter(r=>r.avg >= -10 && r.avg <= 10).length;
+  if (!filtered.length) {
+    document.getElementById('caud-kpis').innerHTML = '<div class="empty" style="grid-column:span 4">Sin datos para los filtros seleccionados</div>';
+    ['tbody-caudales','caud-raw-wrap'].forEach(id => {
+      const el = document.getElementById(id); if(el) el.innerHTML = '';
+    });
+    ['caud-media','caud-dist','caud-evol'].forEach(id => dc(id));
+    return;
+  }
 
+  // ── Color helpers (new ranges) ──
+  // Normal: ±10% | Exceso: >+10% | Déficit regular: -10% a -20% | Déficit crítico: <-20%
+  const cldColor = v => {
+    if (v == null)  return '#475569';
+    if (v > 10)     return '#7dd3fc';   // Exceso
+    if (v >= -10)   return '#4ade80';   // Normal
+    if (v >= -20)   return '#fbbf24';   // Déficit regular
+    return '#f87171';                    // Déficit crítico
+  };
+  const cldBg = v => {
+    if (v == null)  return 'transparent';
+    if (v > 10)     return 'rgba(125,211,252,.15)';
+    if (v >= -10)   return 'rgba(74,222,128,.13)';
+    if (v >= -20)   return 'rgba(251,191,36,.13)';
+    return 'rgba(248,113,113,.13)';
+  };
+  const cldLabel = v => {
+    if (v == null)  return '—';
+    if (v > 10)     return '🔵 Exceso';
+    if (v >= -10)   return '🟢 Normal';
+    if (v >= -20)   return '🟡 Déficit regular';
+    return '🔴 Déficit crítico';
+  };
+
+  // ── Aggregate stats ──
+  const stats = filtered.map(r => {
+    const vals = r.desvs.map(d => d.val).filter(v => v != null);
+    const mn   = vals.length ? Math.min(...vals) : null;
+    const mx   = vals.length ? Math.max(...vals) : null;
+    return { ...r, avg: r.avg3 ?? null, mn, mx, n: vals.length };
+  });
+
+  const withData = stats.filter(r => r.avg != null);
+  const globalAvg = withData.length ? withData.reduce((a,b)=>a+b.avg,0)/withData.length : null;
+  const nCrit   = withData.filter(r => r.avg  <  -20).length;
+  const nDefReg = withData.filter(r => r.avg >= -20 && r.avg < -10).length;
+  const nNorm   = withData.filter(r => r.avg >= -10 && r.avg <= 10).length;
+  const nExceso = withData.filter(r => r.avg  >   10).length;
+
+  // ── KPIs ──
   document.getElementById('caud-kpis').innerHTML = `
-    <div class="kpi-card"><div class="kpi-val">${CAUDALES.length}</div><div class="kpi-lbl">EQ-TR monitoreados</div></div>
-    <div class="kpi-card"><div class="kpi-val" style="color:${globalAvg!=null&&globalAvg<-10?'#ef4444':'#10b981'}">${globalAvg!=null?globalAvg.toFixed(1)+'%':'—'}</div><div class="kpi-lbl">Desviación media global</div></div>
-    <div class="kpi-card"><div class="kpi-val" style="color:#ef4444">${critCount}</div><div class="kpi-lbl">EQ-TR con desv. crítica (&lt;−20%)</div></div>
-    <div class="kpi-card"><div class="kpi-val" style="color:#10b981">${okCount}</div><div class="kpi-lbl">EQ-TR en rango normal (±10%)</div></div>
+    <div class="kpi-card"><div class="kpi-val">${filtered.length}</div><div class="kpi-lbl">EQ-TR monitoreados</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:${cldColor(globalAvg)}">${globalAvg!=null?globalAvg.toFixed(1)+'%':'—'}</div><div class="kpi-lbl">Prom. últimos 3 días</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:#f87171">${nCrit}</div><div class="kpi-lbl">Déficit crítico (&lt;−20%)</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:#fbbf24">${nDefReg}</div><div class="kpi-lbl">Déficit regular (−10 a −20%)</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:#4ade80">${nNorm}</div><div class="kpi-lbl">Normal (±10%)</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:#7dd3fc">${nExceso}</div><div class="kpi-lbl">Exceso (&gt;+10%)</div></div>
   `;
 
-  // Chart: Mean deviation per EQ-TR (sorted)
+  // ── Chart: Prom. 3 días por EQ-TR (horizontal bar) ──
   const sorted = [...stats].filter(r=>r.avg!=null).sort((a,b)=>a.avg-b.avg);
-  if (charts['caud-media']) charts['caud-media'].destroy();
+  dc('caud-media');
   const ctxM = document.getElementById('ch-caud-media').getContext('2d');
   charts['caud-media'] = new Chart(ctxM, {
     type:'bar',
     data:{
       labels: sorted.map(r=>r.eqtr),
-      datasets:[{ label:'Desv. media %', data: sorted.map(r=>+(r.avg.toFixed(1))),
-        backgroundColor: sorted.map(r => r.avg < -20 ? '#ef4444' : r.avg < -10 ? '#f59e0b' : r.avg > 10 ? '#7dd3fc' : '#10b981'),
-        borderRadius:3, barPercentage:.7 }]
+      datasets:[{
+        label:'Prom. 3 días %',
+        data: sorted.map(r=>+(r.avg.toFixed(1))),
+        backgroundColor: sorted.map(r=>cldColor(r.avg)),
+        borderRadius:3, barPercentage:.75
+      }]
     },
     options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
       plugins:{ legend:{display:false},
-        tooltip:{ callbacks:{ label: ctx => ` ${ctx.parsed.x.toFixed(1)}%` } } },
-      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+'%'}, grid:{color:'#1e2d45'} },
-               y:{ ticks:{color:'#94a3b8',font:{size:9}}, grid:{color:'#1e2d45'} } } }
-  });
-
-  // Chart: Distribution donut (critical / alert / normal / over)
-  const nCrit  = withData.filter(r=>r.avg < -20).length;
-  const nAlert = withData.filter(r=>r.avg >= -20 && r.avg < -10).length;
-  const nNorm  = withData.filter(r=>r.avg >= -10 && r.avg <= 10).length;
-  const nOver  = withData.filter(r=>r.avg > 10).length;
-  if (charts['caud-dist']) charts['caud-dist'].destroy();
-  const ctxD = document.getElementById('ch-caud-dist').getContext('2d');
-  charts['caud-dist'] = new Chart(ctxD, {
-    type:'doughnut',
-    data:{
-      labels:['Crítico (<−20%)', 'Alerta (−20 a −10%)', 'Normal (±10%)', 'Por encima (>+10%)'],
-      datasets:[{ data:[nCrit,nAlert,nNorm,nOver],
-        backgroundColor:['#ef4444','#f59e0b','#10b981','#7dd3fc'], borderWidth:0 }]
-    },
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ position:'bottom', labels:{color:'#94a3b8',font:{size:9},padding:6} } } }
-  });
-
-  // Chart: Evolution over time (line, top 6 EQ-TR by # records)
-  const top6 = [...stats].filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,6);
-  // Collect all unique sem labels in order
-  const semSet = new Map();
-  CAUDALES.forEach(r => r.desvs.forEach(d => { if(!semSet.has(d.sem)) semSet.set(d.sem, d.label); }));
-  const allSems = [...semSet.keys()]; // original order from header
-  const LINECOLS = ['#3b82f6','#10b981','#f59e0b','#a78bfa','#ef4444','#06b6d4'];
-  if (charts['caud-evol']) charts['caud-evol'].destroy();
-  const ctxEv = document.getElementById('ch-caud-evol').getContext('2d');
-  charts['caud-evol'] = new Chart(ctxEv, {
-    type:'line',
-    data:{
-      labels: allSems.map(s => semSet.get(s)),
-      datasets: top6.map((r,i) => ({
-        label: r.eqtr,
-        data: allSems.map(s => { const d = r.desvs.find(x=>x.sem===s); return d ? d.val : null; }),
-        borderColor: LINECOLS[i], backgroundColor:'transparent',
-        pointRadius:3, pointHoverRadius:5, tension:.3,
-        spanGaps: true, borderWidth:2
-      }))
-    },
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ labels:{color:'#94a3b8',font:{size:10}} },
-        tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1)}%` } } },
+        tooltip:{ callbacks:{ label: ctx => ` ${ctx.parsed.x.toFixed(1)}%  ·  ${cldLabel(ctx.parsed.x)}` } }
+      },
       scales:{
-        x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:55}, grid:{color:'#1e2d45'} },
-        y:{ ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+'%'}, grid:{color:'#1e2d45'},
-          title:{display:true,text:'Desviación %',color:'#64748b',font:{size:10}} }
+        x:{ ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+'%'}, grid:{color:'rgba(255,255,255,.08)'} },
+        y:{ ticks:{color:'#94a3b8',font:{size:9}}, grid:{color:'rgba(255,255,255,.04)'} }
       }
     }
   });
 
-  // Table
-  const cldColor = v => v < -20 ? '#ef4444' : v < -10 ? '#f59e0b' : v > 10 ? '#7dd3fc' : '#10b981';
-  const cldLabel = v => v < -20 ? '🔴 Crítico' : v < -10 ? '🟡 Alerta' : v > 10 ? '🔵 Exceso' : '🟢 Normal';
+  // ── Chart: Distribution donut ──
+  dc('caud-dist');
+  const ctxD = document.getElementById('ch-caud-dist').getContext('2d');
+  charts['caud-dist'] = new Chart(ctxD, {
+    type:'doughnut',
+    data:{
+      labels:['Déficit crítico (<−20%)', 'Déficit regular (−20 a −10%)', 'Normal (±10%)', 'Exceso (>+10%)'],
+      datasets:[{
+        data:[nCrit,nDefReg,nNorm,nExceso],
+        backgroundColor:['#f87171','#fbbf24','#4ade80','#7dd3fc'],
+        borderWidth:0, hoverOffset:5
+      }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'bottom',
+        labels:{ color:'#94a3b8', font:{size:9}, padding:6,
+          generateLabels: chart => chart.data.labels.map((l,i) => ({
+            text: `${l}  (${chart.data.datasets[0].data[i]})`,
+            fillStyle: chart.data.datasets[0].backgroundColor[i],
+            strokeStyle:'transparent', lineWidth:0, index:i
+          }))
+        }
+      }}
+    }
+  });
+
+  // ── Chart: Evolution temporal — fechas dd/mm/yyyy como etiquetas ──
+  const dateMap = new Map();
+  filtered.forEach(r => r.desvs.forEach(d => {
+    if (!dateMap.has(d.label)) dateMap.set(d.label, true);
+  }));
+  const allDates = [...dateMap.keys()]; // en orden original (más reciente primero)
+
+  const top6 = [...stats].filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,6);
+  const LINECOLS = ['#38bdf8','#4ade80','#fbbf24','#c084fc','#f87171','#fb923c'];
+  dc('caud-evol');
+  const ctxEv = document.getElementById('ch-caud-evol').getContext('2d');
+  charts['caud-evol'] = new Chart(ctxEv, {
+    type:'line',
+    data:{
+      labels: allDates,
+      datasets: top6.map((r,i) => ({
+        label: r.eqtr,
+        data: allDates.map(lbl => { const d = r.desvs.find(x=>x.label===lbl); return d?d.val:null; }),
+        borderColor: LINECOLS[i%LINECOLS.length],
+        backgroundColor:'transparent',
+        pointRadius:2.5, pointHoverRadius:5, tension:.3,
+        spanGaps:true, borderWidth:2, order:1
+      }))
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ labels:{color:'#94a3b8',font:{size:10}} },
+        tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1)}%  ${cldLabel(ctx.parsed.y)}` }}
+      },
+      scales:{
+        x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:55}, grid:{color:'rgba(255,255,255,.06)'} },
+        y:{ ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+'%'}, grid:{color:'rgba(255,255,255,.08)'},
+            title:{display:true,text:'Desviación %',color:'#64748b',font:{size:10}} }
+      }
+    }
+  });
+
+  // ── Summary table ──
   document.getElementById('tbody-caudales').innerHTML = stats.map(r => `
     <tr>
-      <td style="font-family:var(--mono);font-size:.71rem">${r.eqtr}</td>
+      <td style="font-family:var(--mono);font-size:.71rem;color:var(--blue)">${r.eqtr}</td>
       <td style="font-size:.71rem">${r.eq||'—'}</td>
       <td style="font-size:.71rem">${r.tr||'—'}</td>
       <td class="r">${r.caudal!=null?r.caudal.toFixed(1):'—'}</td>
       <td class="r">${r.n}</td>
-      <td class="r" style="color:${r.avg!=null?cldColor(r.avg):'#475569'};font-weight:500">${r.avg!=null?r.avg.toFixed(1)+'%':'—'}</td>
+      <td class="r" style="background:${cldBg(r.avg)};color:${cldColor(r.avg)};font-weight:600"
+          title="Últimos 3 días: ${r.last3?.map(d=>d.val.toFixed(1)+'%').join(', ')||'—'}">${r.avg!=null?r.avg.toFixed(1)+'%':'—'}</td>
       <td class="r" style="color:#fca5a5">${r.mn!=null?r.mn.toFixed(1)+'%':'—'}</td>
       <td class="r" style="color:#86efac">${r.mx!=null?r.mx.toFixed(1)+'%':'—'}</td>
-      <td style="font-size:.72rem">${r.avg!=null?cldLabel(r.avg):'—'}</td>
+      <td style="font-size:.72rem">${cldLabel(r.avg)}</td>
     </tr>`).join('') || '<tr><td colspan="9" class="empty">Sin datos</td></tr>';
+
+  // ── Raw table — datos tal cual del Excel (con filtros) ──
+  const rawWrap = document.getElementById('caud-raw-wrap');
+  if (rawWrap && filtered.length) {
+    const rawDateMap = new Map();
+    filtered.forEach(r => r.desvs.forEach(d => {
+      if (!rawDateMap.has(d.label)) rawDateMap.set(d.label, true);
+    }));
+    const rawDates = [...rawDateMap.keys()];
+
+    let rawHtml = '<table class="tbl"><thead><tr>';
+    rawHtml += '<th>EQ-TR</th><th>FD</th><th>EQ</th><th>TR</th><th class="r">Caudal Diseño</th>';
+    rawDates.forEach(lbl => {
+      rawHtml += `<th class="r" style="white-space:nowrap;font-size:.6rem">${lbl}</th>`;
+    });
+    rawHtml += '</tr></thead><tbody>';
+
+    filtered.forEach(r => {
+      rawHtml += '<tr>';
+      rawHtml += `<td style="font-family:var(--mono);font-size:.7rem;color:var(--blue)">${r.eqtr}</td>`;
+      rawHtml += `<td style="font-size:.7rem">${r.fd||'—'}</td>`;
+      rawHtml += `<td style="font-size:.7rem">${r.eq||'—'}</td>`;
+      rawHtml += `<td style="font-size:.7rem">${r.tr||'—'}</td>`;
+      rawHtml += `<td class="r">${r.caudal!=null?r.caudal.toFixed(1):'—'}</td>`;
+      rawDates.forEach(lbl => {
+        const d = r.desvs.find(x=>x.label===lbl);
+        const v = d ? d.val : null;
+        rawHtml += `<td class="r" style="font-family:var(--mono);font-size:.68rem;color:${cldColor(v)};background:${cldBg(v)}">${v!=null?v.toFixed(1)+'%':'—'}</td>`;
+      });
+      rawHtml += '</tr>';
+    });
+    rawHtml += '</tbody></table>';
+    rawWrap.innerHTML = rawHtml;
+  } else if (rawWrap) {
+    rawWrap.innerHTML = '<div class="empty">Sin datos</div>';
+  }
 }
 
 
@@ -2922,6 +3069,55 @@ if ('serviceWorker' in navigator) {
       .catch(err => console.log('[PWA] SW error:', err));
   });
 }
+
+
+// ═══════════════════════════════════════════════
+//  THEME TOGGLE — light / dark
+// ═══════════════════════════════════════════════
+let DARK_MODE = true;
+
+function toggleTheme() {
+  DARK_MODE = !DARK_MODE;
+  applyTheme();
+  try { localStorage.setItem('riego-theme', DARK_MODE ? 'dark' : 'light'); } catch(e){}
+}
+
+function applyTheme() {
+  document.body.classList.toggle('light', !DARK_MODE);
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = DARK_MODE ? '🌙' : '☀️';
+  // Update all chart colors to match theme
+  const gridColor    = DARK_MODE ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.07)';
+  const tickColor    = DARK_MODE ? '#64748b' : '#6b7280';
+  const legendColor  = DARK_MODE ? '#94a3b8' : '#374151';
+  Object.values(charts).forEach(ch => {
+    if (!ch || !ch.options) return;
+    // Update scales
+    if (ch.options.scales) {
+      Object.values(ch.options.scales).forEach(sc => {
+        if (sc.ticks) sc.ticks.color = tickColor;
+        if (sc.grid)  sc.grid.color  = gridColor;
+        if (sc.title) sc.title.color  = tickColor;
+      });
+    }
+    // Update legend
+    if (ch.options.plugins?.legend?.labels) {
+      ch.options.plugins.legend.labels.color = legendColor;
+    }
+    ch.update('none');
+  });
+}
+
+// Restore saved theme on load
+try {
+  const saved = localStorage.getItem('riego-theme');
+  if (saved === 'light') { DARK_MODE = false; document.body.classList.add('light'); }
+} catch(e) {}
+// Set initial toggle icon
+window.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = DARK_MODE ? '🌙' : '☀️';
+});
 
 </script>
 </body>
