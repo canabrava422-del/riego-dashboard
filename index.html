@@ -357,8 +357,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 /* PANEL */
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;overflow:hidden}
 .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;flex-wrap:wrap;gap:.3rem}
-.pt{font-size:.69rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-family:var(--mono);display:flex;align-items:center;gap:.4rem}
-.pt b{color:var(--blue);font-weight:500}
+.pt{font-size:.73rem;color:var(--text);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-family:var(--mono);display:flex;align-items:center;gap:.4rem}
+.pt b{color:var(--blue);font-weight:700}
 .chart-wrap{position:relative;width:100%}
 @media(max-width:600px){
   .panel{padding:.75rem .8rem;border-radius:8px}
@@ -1372,32 +1372,67 @@ function parseHarvest(rows) {
 //  PARSE PROGRAMA (Hoja3)
 // ═══════════════════════════════════════════════
 function parsePrograma(rows) {
-  return rows.map(r => {
-    const n = v => { const x = parseFloat(v); return isNaN(x) ? null : x; };
-    const s = v => (v != null && v !== '') ? String(v).trim() : null;
-    return {
-      eqtr:     s(r['EQ-TR']),
-      eq:       s(r['EQ']),
-      tr:       s(r['TR']),
-      conc:     s(r['Conc']),
-      area:     n(r['Área']),
-      textura:  s(r['Textura']),
-      anio:     n(r['Año']),
-      edad:     n(r['Edad']),
-      semCult:  n(r['Sem. Cultivo']),
-      eto:      n(r['ETo mm/día']),
-      kc:       n(r['Kc']),
-      etc:      n(r['ETc mm/día']),
-      tRiego:   n(r['Tiempo de riego (h)']),
-      factorP:  n(r['Factor P']),
-      psm:      n(r['Porcentaje de suelo mojado (PSM)']),
-      afa:      n(r['AFA mm']),
-      frecRiego: n(r['Frecuencia riego (hrs)']),
-      cdc:      n(r['Cdc-Pmp']),
-      hum21:    n(r['% Humedad  Semana 21'] ?? r['% Humedad\nSemana 21'] ?? r['% Humedad Semana 21']),
-      hum22:    n(r['% Humedad  Semana 22'] ?? r['% Humedad\nSemana 22'] ?? r['% Humedad Semana 22']),
-    };
-  }).filter(r => r.eqtr && r.eqtr !== 'EQ-TR');
+  // n() parses numbers; also handles "24%" strings from raw:false XLSX
+  const n  = v => {
+    if (v == null || v === '') return null;
+    const s = String(v).replace('%','').trim();
+    const x = parseFloat(s);
+    return isNaN(x) ? null : x;
+  };
+  // nPct() for percentage cells: strips %, value stays as-is (24 = 24%)
+  // With raw:false XLSX returns "24%" → nPct → 24
+  // With raw:true  XLSX returns  0.24  → nPct → 0.24*100 = 24
+  const nPct = v => {
+    if (v == null || v === '') return null;
+    const str = String(v).trim();
+    if (str.includes('%')) {
+      const x = parseFloat(str.replace('%','').trim());
+      return isNaN(x) ? null : x; // already in %, e.g. 24
+    }
+    // decimal form (0.24) → multiply × 100
+    const x = parseFloat(str);
+    return isNaN(x) ? null : +(x * 100).toFixed(2);
+  };
+  const nPsm = v => {
+    // PSM: same logic as nPct
+    return nPct(v);
+  };
+  const s  = v => (v != null && v !== '') ? String(v).trim() : null;
+  const hKey = (r, sem) => {
+    // Try all possible key variations for humidity columns
+    const keys = [
+      `% Humedad  Semana ${sem}`,
+      `% Humedad
+Semana ${sem}`,
+      `% Humedad Semana ${sem}`,
+      `%Humedad Semana ${sem}`,
+    ];
+    for (const k of keys) { if (r[k] != null) return r[k]; }
+    return null;
+  };
+  return rows.map(r => ({
+    eqtr:      s(r['EQ-TR']),
+    eq:        s(r['EQ']),
+    tr:        s(r['TR']),
+    fd:        s(r['FD']),
+    conc:      s(r['Conc']),
+    area:      n(r['Área']),
+    textura:   s(r['Textura']),
+    anio:      n(r['Año']),
+    edad:      n(r['Edad']),
+    semCult:   n(r['Sem. Cultivo']),
+    eto:       n(r['ETo mm/día']),
+    kc:        n(r['Kc']),
+    etc:       n(r['ETc mm/día']),
+    tRiego:    n(r['Tiempo de riego (h)']),
+    factorP:   n(r['Factor P']),
+    psm:       nPsm(r['Porcentaje de suelo mojado (PSM)']),
+    afa:       n(r['AFA mm']),
+    frecRiego: n(r['Frecuencia riego (hrs)']),
+    cdc:       n(r['Cdc-Pmp']),
+    hum21:     nPct(hKey(r, 21)),
+    hum22:     nPct(hKey(r, 22)),
+  })).filter(r => r.eqtr && r.eqtr !== 'EQ-TR');
 }
 
 // ═══════════════════════════════════════════════
@@ -2374,11 +2409,15 @@ function renderPrograma() {
   const avgT = valT.length ? (valT.reduce((a,b)=>a+b,0)/valT.length).toFixed(1) : '—';
   const nEqtr = PROGRAMA.length;
 
+  const valEto = PROGRAMA.filter(r=>r.eto!=null).map(r=>r.eto);
+  const avgEto = valEto.length ? (valEto.reduce((a,b)=>a+b,0)/valEto.length).toFixed(1) : '—';
+
   document.getElementById('prog-kpis').innerHTML = `
     <div class="kpi-card"><div class="kpi-val">${nEqtr}</div><div class="kpi-lbl">EQ-TR en programa</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:var(--green)">${avgEto} <span style="font-size:.65rem;font-weight:400">mm/d</span></div><div class="kpi-lbl">ETo promedio</div></div>
     <div class="kpi-card"><div class="kpi-val">${avgKc}</div><div class="kpi-lbl">Kc promedio</div></div>
     <div class="kpi-card"><div class="kpi-val" style="color:var(--blue)">${avgEtc} <span style="font-size:.65rem;font-weight:400">mm/d</span></div><div class="kpi-lbl">ETc promedio</div></div>
-    <div class="kpi-card"><div class="kpi-val" style="color:var(--green)">${avgT} <span style="font-size:.65rem;font-weight:400">h</span></div><div class="kpi-lbl">T. riego promedio</div></div>
+    <div class="kpi-card"><div class="kpi-val" style="color:var(--amber)">${avgT} <span style="font-size:.65rem;font-weight:400">h</span></div><div class="kpi-lbl">T. riego promedio</div></div>
   `;
 
   // Chart: Tiempo de riego por EQ-TR (top 20 for legibility)
@@ -2394,8 +2433,8 @@ function renderPrograma() {
         borderRadius:3, barPercentage:.75 }]
     },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}},
-      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:60}, grid:{color:'#1e2d45'} },
-               y:{ ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'#1e2d45'} } } }
+      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:60}, grid:{color:'rgba(128,128,128,.15)'} },
+               y:{ ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'rgba(128,128,128,.15)'} } } }
   });
 
   // Chart: ETc vs ETo
@@ -2413,8 +2452,8 @@ function renderPrograma() {
     },
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{ labels:{color:'#94a3b8',font:{size:10}} } },
-      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:60}, grid:{color:'#1e2d45'} },
-               y:{ ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'#1e2d45'} } } }
+      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:60}, grid:{color:'rgba(128,128,128,.15)'} },
+               y:{ ticks:{color:'#94a3b8',font:{size:10}}, grid:{color:'rgba(128,128,128,.15)'} } } }
   });
 
   // Chart: Textura donut
@@ -2441,17 +2480,17 @@ function renderPrograma() {
     data:{
       labels: humRows.map(r=>r.eqtr),
       datasets:[
-        { label:'Hum S21 (%)', data: humRows.map(r=>r.hum21!=null?+(r.hum21*100).toFixed(1):null),
+        { label:'Hum S21 (%)', data: humRows.map(r=>r.hum21!=null?+r.hum21.toFixed(1):null),
           backgroundColor:'rgba(167,139,250,.8)', borderRadius:3, barPercentage:.5 },
-        { label:'Hum S22 (%)', data: humRows.map(r=>r.hum22!=null?+(r.hum22*100).toFixed(1):null),
+        { label:'Hum S22 (%)', data: humRows.map(r=>r.hum22!=null?+r.hum22.toFixed(1):null),
           backgroundColor:'rgba(59,130,246,.7)', borderRadius:3, barPercentage:.5 }
       ]
     },
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{ labels:{color:'#94a3b8',font:{size:10}} } },
-      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:60}, grid:{color:'#1e2d45'} },
+      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:60}, grid:{color:'rgba(128,128,128,.15)'} },
                y:{ ticks:{ color:'#94a3b8',font:{size:10},
-                   callback: v => v + '%' }, grid:{color:'#1e2d45'} } } }
+                   callback: v => v + '%' }, grid:{color:'rgba(128,128,128,.15)'} } } }
   });
 
   // Table
@@ -2469,9 +2508,9 @@ function renderPrograma() {
       <td class="r">${fmt1(r.tRiego)}</td>
       <td class="r">${fmt1(r.frecRiego)}</td>
       <td class="r">${fmt2(r.afa)}</td>
-      <td class="r">${r.psm!=null?(r.psm*100).toFixed(0)+'%':'—'}</td>
-      <td class="r" style="color:${r.hum21!=null?'#a78bfa':'#475569'}">${r.hum21!=null?(r.hum21*100).toFixed(1)+'%':'—'}</td>
-      <td class="r" style="color:${r.hum22!=null?'#3b82f6':'#475569'}">${r.hum22!=null?(r.hum22*100).toFixed(1)+'%':'—'}</td>
+      <td class="r">${r.psm!=null?r.psm.toFixed(0)+'%':'—'}</td>
+      <td class="r" style="color:${r.hum21!=null?'#a78bfa':'#475569'}">${r.hum21!=null?r.hum21.toFixed(1)+'%':'—'}</td>
+      <td class="r" style="color:${r.hum22!=null?'#3b82f6':'#475569'}">${r.hum22!=null?r.hum22.toFixed(1)+'%':'—'}</td>
     </tr>`).join('') || '<tr><td colspan="15" class="empty">Sin datos</td></tr>';
 }
 
@@ -3086,26 +3125,80 @@ function applyTheme() {
   document.body.classList.toggle('light', !DARK_MODE);
   const btn = document.getElementById('theme-toggle');
   if (btn) btn.textContent = DARK_MODE ? '🌙' : '☀️';
-  // Update all chart colors to match theme
-  const gridColor    = DARK_MODE ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.07)';
-  const tickColor    = DARK_MODE ? '#64748b' : '#6b7280';
-  const legendColor  = DARK_MODE ? '#94a3b8' : '#374151';
+
+  const gridColor   = DARK_MODE ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.09)';
+  const tickColor   = DARK_MODE ? '#ffffff' : '#111827';
+  const legendColor = DARK_MODE ? '#ffffff' : '#111827';
+  const titleColor  = DARK_MODE ? '#ffffff' : '#111827';
+
   Object.values(charts).forEach(ch => {
     if (!ch || !ch.options) return;
-    // Update scales
+    // Scales: ticks, grid, title
     if (ch.options.scales) {
       Object.values(ch.options.scales).forEach(sc => {
         if (sc.ticks) sc.ticks.color = tickColor;
         if (sc.grid)  sc.grid.color  = gridColor;
-        if (sc.title) sc.title.color  = tickColor;
+        if (sc.border) sc.border.color = gridColor;
+        if (sc.title) sc.title.color  = titleColor;
       });
     }
-    // Update legend
+    // Legend
     if (ch.options.plugins?.legend?.labels) {
       ch.options.plugins.legend.labels.color = legendColor;
     }
+    // Tooltip
+    if (ch.options.plugins?.tooltip) {
+      ch.options.plugins.tooltip.backgroundColor = DARK_MODE ? '#1a2236' : '#ffffff';
+      ch.options.plugins.tooltip.titleColor       = DARK_MODE ? '#e2e8f0' : '#111827';
+      ch.options.plugins.tooltip.bodyColor        = DARK_MODE ? '#94a3b8' : '#374151';
+      ch.options.plugins.tooltip.borderColor      = DARK_MODE ? '#1e2d45' : '#e2e8f0';
+      ch.options.plugins.tooltip.borderWidth      = 1;
+    }
+    // Bar chart: swap dataset bg colors for better contrast in light mode
+    if (!DARK_MODE && ch.config?.type === 'bar') {
+      ch.data.datasets.forEach(ds => {
+        if (typeof ds.backgroundColor === 'string') {
+          ds.backgroundColor = darkenColor(ds.backgroundColor);
+        } else if (Array.isArray(ds.backgroundColor)) {
+          ds.backgroundColor = ds.backgroundColor.map(c => darkenColor(c));
+        }
+        if (typeof ds.borderColor === 'string') {
+          ds.borderColor = darkenColor(ds.borderColor);
+        }
+      });
+    }
     ch.update('none');
   });
+
+  // Panel titles & axis labels: bold black/white
+  const ptColor = DARK_MODE ? '#ffffff' : '#111827';
+  document.querySelectorAll('.pt, .pt b').forEach(el => {
+    el.style.color = ptColor;
+  });
+}
+
+// Map bright dark-theme colors → darker versions for light theme
+function darkenColor(c) {
+  if (!c) return c;
+  const map = {
+    // Bright → dark-readable
+    '#38bdf8':'#0284c7', '#7dd3fc':'#0369a1',
+    '#4ade80':'#15803d', '#86efac':'#16a34a', '#10b981':'#047857',
+    '#fbbf24':'#b45309', '#fde68a':'#92400e', '#f59e0b':'#b45309',
+    '#f87171':'#b91c1c', '#fca5a5':'#dc2626', '#ef4444':'#b91c1c',
+    '#fb923c':'#c2410c', '#fed7aa':'#9a3412',
+    '#c084fc':'#7e22ce', '#a78bfa':'#6d28d9',
+    '#60a5fa':'#1d4ed8', '#3b82f6':'#1d4ed8',
+    // Transparent/alpha versions
+    'rgba(59,130,246,.8)' :'rgba(29,78,216,.9)',
+    'rgba(16,185,129,.8)' :'rgba(4,120,87,.9)',
+    'rgba(16,185,129,.6)' :'rgba(4,120,87,.8)',
+    'rgba(167,139,250,.8)':'rgba(109,40,217,.9)',
+    'rgba(59,130,246,.7)' :'rgba(29,78,216,.85)',
+    'rgba(245,158,11,.8)' :'rgba(180,83,9,.9)',
+    'rgba(239,68,68,.8)'  :'rgba(185,28,28,.9)',
+  };
+  return map[c] || c;
 }
 
 // Restore saved theme on load
