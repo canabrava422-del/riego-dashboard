@@ -40,6 +40,16 @@ body.light{
   --text:#111827; --text2:#374151; --text3:#6b7280; --text4:#9ca3af;
   --shadow:0 1px 3px rgba(0,0,0,.07),0 1px 2px rgba(0,0,0,.04);
 }
+/* Force dark greens on inline color styles in light theme */
+body.light [style*="color:#4ade80"],
+body.light [style*="color: #4ade80"] { color:#15803d !important; }
+body.light [style*="color:#10b981"],
+body.light [style*="color: #10b981"] { color:#047857 !important; }
+body.light [style*="color:#86efac"],
+body.light [style*="color: #86efac"] { color:#16a34a !important; }
+body.light [style*="color:#4ade80;"],
+body.light [style*="background:#4ade80"] { background:#15803d !important; }
+body.light [style*="background:#10b981"] { background:#047857 !important; }
 /* Toggle button */
 #theme-toggle{
   background:var(--surface2);border:1px solid var(--border2);color:var(--text3);
@@ -360,6 +370,7 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 .pt{font-size:.73rem;color:var(--text);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-family:var(--mono);display:flex;align-items:center;gap:.4rem}
 .pt b{color:var(--blue);font-weight:700}
 .chart-wrap{position:relative;width:100%}
+canvas{display:block;background:var(--surface);border-radius:4px}
 @media(max-width:600px){
   .panel{padding:.75rem .8rem;border-radius:8px}
   .ph{margin-bottom:.6rem}
@@ -934,10 +945,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
           <div class="ph"><div class="pt">Distribución por textura de suelo</div></div>
           <div class="chart-wrap" style="max-height:220px"><canvas id="ch-prog-textura" height="220"></canvas></div>
         </div>
-        <div class="panel c8">
-          <div class="ph"><div class="pt">% Humedad en campo (Sem. 21 vs Sem. 22)</div></div>
-          <div class="chart-wrap"><canvas id="ch-prog-hum" height="220"></canvas></div>
-        </div>
       </div>
       <div class="g">
         <div class="panel c12">
@@ -1068,6 +1075,20 @@ let DET_TAB = 'TOTAL';
 let SEM_TAB = null;
 const charts = {};
 
+// ─── Chart.js: paint canvas background to match theme ───
+// Uses direct fillRect (no destination-over) so it always covers the full canvas
+Chart.register({
+  id: 'canvasBg',
+  beforeDraw(chart) {
+    const ctx = chart.ctx;
+    const isDark = !document.body.classList.contains('light');
+    ctx.save();
+    ctx.fillStyle = isDark ? '#111827' : '#ffffff';
+    ctx.fillRect(0, 0, chart.width, chart.height);
+    ctx.restore();
+  }
+});
+
 // ─── Multi-select state ───
 const MS = {}; // id -> { all:[], sel:Set }
 
@@ -1193,86 +1214,10 @@ function handleFile(file) {
   setTimeout(() => {
     const reader = new FileReader();
     reader.onload = ev => {
-      updateLoadMsg('Procesando hoja 1...');
-      setTimeout(() => {
-        try {
-          // Parse with minimal options for speed on iOS
-          const wb = XLSX.read(ev.target.result, {
-            type:'array',
-            cellDates:true,
-            cellNF:false,
-            cellHTML:false,
-            cellStyles:false,
-            sheetStubs:false
-          });
-
-          // Sheet 1 — riego
-          const sheet1 = wb.Sheets[wb.SheetNames[0]];
-          const json1 = XLSX.utils.sheet_to_json(sheet1, { defval:null, raw:false });
-          if (!json1.length || !json1[0].hasOwnProperty('semana')) throw new Error('Formato inválido: falta columna "semana"');
-
-          updateLoadMsg('Procesando hoja 2...');
-          setTimeout(() => {
-            // Sheet 2 — cosecha (optional)
-            let json2 = [];
-            if (wb.SheetNames.length > 1) {
-              try {
-                const sheet2 = wb.Sheets[wb.SheetNames[1]];
-                const raw2 = XLSX.utils.sheet_to_json(sheet2, { defval:null, header:1, raw:false });
-                let hdrIdx = -1;
-                for (let i = 0; i < Math.min(10, raw2.length); i++) {
-                  if (raw2[i] && raw2[i].some(c => c === 'EQ-TR')) { hdrIdx = i; break; }
-                }
-                if (hdrIdx >= 0) {
-                  const hdrs = raw2[hdrIdx];
-                  const eqtrCol = hdrs.indexOf('EQ-TR');
-                  for (let i = hdrIdx + 1; i < raw2.length; i++) {
-                    const row = raw2[i];
-                    if (!row || !row[eqtrCol]) continue;
-                    const obj = {};
-                    hdrs.forEach((h, j) => { if (h != null) obj[h] = row[j] ?? null; });
-                    json2.push(obj);
-                  }
-                }
-              } catch(e2) { console.warn('Hoja2 error:', e2); }
-            }
-
-            updateLoadMsg('Generando dashboard...');
-            setTimeout(() => {
-              // REPLACE — never accumulate
-              RAW     = parseData(json1);
-              HARVEST = parseHarvest(json2);
-              // Hoja3 — programa de riego
-              PROGRAMA = [];
-              if (wb.SheetNames.length > 2) {
-                try {
-                  const s3 = wb.Sheets[wb.SheetNames[2]];
-                  const j3 = XLSX.utils.sheet_to_json(s3, { defval:null, raw:true });
-                  PROGRAMA = parsePrograma(j3);
-                } catch(e3) { console.warn('Hoja3 error:', e3); }
-              }
-              // Hoja4 — desviación de caudales
-              CAUDALES = [];
-              if (wb.SheetNames.length > 3) {
-                try {
-                  const s4 = wb.Sheets[wb.SheetNames[3]];
-                  const j4 = XLSX.utils.sheet_to_json(s4, { defval:null, raw:true, header:1 });
-                  CAUDALES = parseCaudales(j4);
-                } catch(e4) { console.warn('Hoja4 error:', e4); }
-              }
-              Object.keys(MS).forEach(k => { MS[k].sel = new Set(); });
-              DET_TAB = 'TOTAL'; SEM_TAB = null;
-              initDashboard();
-            }, 30);
-          }, 30);
-
-        } catch(err) {
-          showLoading(false);
-          document.getElementById('error-msg').style.display = 'block';
-          document.getElementById('error-msg').textContent = '⚠ ' + err.message;
-          console.error(err);
-        }
-      }, 30);
+      const arrayBuffer = ev.target.result;
+      // Persist to IndexedDB so next visit auto-loads (fire-and-forget)
+      saveFileToIDB(arrayBuffer, file.name);
+      processArrayBuffer(arrayBuffer, file.name);
     };
 
     reader.onerror = () => {
@@ -1475,7 +1420,7 @@ function parseCaudales(rawRows) {
     weekCols.push({ idx: i, dayVal: day, mo: moN, yr: yr ? parseInt(yr)+2000 : null, label });
   }
 
-  const eqtrIdx = 0, mfIdx = 1, fdIdx = 2, eqIdx = 3, trIdx = 4, caudalIdx = 7;
+  const eqtrIdx = 0, mfIdx = 1, fdIdx = 2, eqIdx = 3, trIdx = 4, areaIdx = 6, caudalIdx = 7;
   const result = [];
   for (let i = 3; i < rawRows.length; i++) {
     const row = rawRows[i];
@@ -1501,6 +1446,7 @@ function parseCaudales(rawRows) {
       fd:     row[fdIdx]  != null ? String(row[fdIdx]).trim()  : '',
       eq:     row[eqIdx]  != null ? String(row[eqIdx]).trim()  : '',
       tr:     row[trIdx]  != null ? String(row[trIdx]).trim()  : '',
+      area:   parseFloat(row[areaIdx]) || null,
       caudal: parseFloat(row[caudalIdx]) || null,
       desvs,
       last3,
@@ -1514,6 +1460,8 @@ function parseCaudales(rawRows) {
 function showLoading(v) { document.getElementById('loading').style.display = v?'flex':'none'; }
 
 function resetUpload() {
+  // Clear cached Excel from IndexedDB
+  clearFileFromIDB();
   // Destroy all charts to free memory
   Object.keys(charts).forEach(k => { try { charts[k].destroy(); } catch(e){} delete charts[k]; });
   RAW = [];
@@ -2471,28 +2419,6 @@ function renderPrograma() {
       plugins:{ legend:{ position:'bottom', labels:{color:'#94a3b8',font:{size:10},padding:8} } } }
   });
 
-  // Chart: Humedad S21 vs S22
-  const humRows = PROGRAMA.filter(r=>r.hum21!=null||r.hum22!=null).slice(0,28);
-  if (charts['prog-hum']) charts['prog-hum'].destroy();
-  const ctxH = document.getElementById('ch-prog-hum').getContext('2d');
-  charts['prog-hum'] = new Chart(ctxH, {
-    type:'bar',
-    data:{
-      labels: humRows.map(r=>r.eqtr),
-      datasets:[
-        { label:'Hum S21 (%)', data: humRows.map(r=>r.hum21!=null?+r.hum21.toFixed(1):null),
-          backgroundColor:'rgba(167,139,250,.8)', borderRadius:3, barPercentage:.5 },
-        { label:'Hum S22 (%)', data: humRows.map(r=>r.hum22!=null?+r.hum22.toFixed(1):null),
-          backgroundColor:'rgba(59,130,246,.7)', borderRadius:3, barPercentage:.5 }
-      ]
-    },
-    options:{ responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ labels:{color:'#94a3b8',font:{size:10}} } },
-      scales:{ x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:60}, grid:{color:'rgba(128,128,128,.15)'} },
-               y:{ ticks:{ color:'#94a3b8',font:{size:10},
-                   callback: v => v + '%' }, grid:{color:'rgba(128,128,128,.15)'} } } }
-  });
-
   // Table
   document.getElementById('tbody-programa').innerHTML = PROGRAMA.map(r => `
     <tr>
@@ -2545,12 +2471,13 @@ function renderCaudales() {
 
   // ── Color helpers (new ranges) ──
   // Normal: ±10% | Exceso: >+10% | Déficit regular: -10% a -20% | Déficit crítico: <-20%
+  const _isLight = document.body.classList.contains('light');
   const cldColor = v => {
     if (v == null)  return '#475569';
-    if (v > 10)     return '#7dd3fc';   // Exceso
-    if (v >= -10)   return '#4ade80';   // Normal
-    if (v >= -20)   return '#fbbf24';   // Déficit regular
-    return '#f87171';                    // Déficit crítico
+    if (v > 10)     return _isLight ? '#0369a1' : '#7dd3fc';   // Exceso
+    if (v >= -10)   return _isLight ? '#15803d' : '#4ade80';   // Normal
+    if (v >= -20)   return _isLight ? '#b45309' : '#fbbf24';   // Déficit regular
+    return _isLight ? '#b91c1c' : '#f87171';                    // Déficit crítico
   };
   const cldBg = v => {
     if (v == null)  return 'transparent';
@@ -2577,10 +2504,16 @@ function renderCaudales() {
 
   const withData = stats.filter(r => r.avg != null);
   const globalAvg = withData.length ? withData.reduce((a,b)=>a+b.avg,0)/withData.length : null;
-  const nCrit   = withData.filter(r => r.avg  <  -20).length;
-  const nDefReg = withData.filter(r => r.avg >= -20 && r.avg < -10).length;
-  const nNorm   = withData.filter(r => r.avg >= -10 && r.avg <= 10).length;
-  const nExceso = withData.filter(r => r.avg  >   10).length;
+
+  // Hectares by category (sum of area field)
+  const haCrit   = withData.filter(r => r.avg  <  -20).reduce((s,r) => s + (r.area||0), 0);
+  const haDefReg = withData.filter(r => r.avg >= -20 && r.avg < -10).reduce((s,r) => s + (r.area||0), 0);
+  const haNorm   = withData.filter(r => r.avg >= -10 && r.avg <=  10).reduce((s,r) => s + (r.area||0), 0);
+  const haExceso = withData.filter(r => r.avg  >   10).reduce((s,r) => s + (r.area||0), 0);
+  const nCrit    = withData.filter(r => r.avg  <  -20).length;
+  const nDefReg  = withData.filter(r => r.avg >= -20 && r.avg < -10).length;
+  const nNorm    = withData.filter(r => r.avg >= -10 && r.avg <=  10).length;
+  const nExceso  = withData.filter(r => r.avg  >   10).length;
 
   // ── KPIs ──
   document.getElementById('caud-kpis').innerHTML = `
@@ -2591,6 +2524,11 @@ function renderCaudales() {
     <div class="kpi-card"><div class="kpi-val" style="color:#4ade80">${nNorm}</div><div class="kpi-lbl">Normal (±10%)</div></div>
     <div class="kpi-card"><div class="kpi-val" style="color:#7dd3fc">${nExceso}</div><div class="kpi-lbl">Exceso (&gt;+10%)</div></div>
   `;
+
+  const isDark = !document.body.classList.contains('light');
+  const gridC  = isDark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.09)';
+  const tickC  = isDark ? '#e2e8f0' : '#111827';
+  const legendC = isDark ? '#e2e8f0' : '#111827';
 
   // ── Chart: Prom. 3 días por EQ-TR (horizontal bar) ──
   const sorted = [...stats].filter(r=>r.avg!=null).sort((a,b)=>a.avg-b.avg);
@@ -2612,13 +2550,13 @@ function renderCaudales() {
         tooltip:{ callbacks:{ label: ctx => ` ${ctx.parsed.x.toFixed(1)}%  ·  ${cldLabel(ctx.parsed.x)}` } }
       },
       scales:{
-        x:{ ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+'%'}, grid:{color:'rgba(255,255,255,.08)'} },
-        y:{ ticks:{color:'#94a3b8',font:{size:9}}, grid:{color:'rgba(255,255,255,.04)'} }
+        x:{ ticks:{color:tickC,font:{size:10},callback:v=>v+'%'}, grid:{color:gridC} },
+        y:{ ticks:{color:tickC,font:{size:9}}, grid:{color:gridC} }
       }
     }
   });
 
-  // ── Chart: Distribution donut ──
+  // ── Chart: Distribution donut (hectáreas por categoría) ──
   dc('caud-dist');
   const ctxD = document.getElementById('ch-caud-dist').getContext('2d');
   charts['caud-dist'] = new Chart(ctxD, {
@@ -2626,17 +2564,18 @@ function renderCaudales() {
     data:{
       labels:['Déficit crítico (<−20%)', 'Déficit regular (−20 a −10%)', 'Normal (±10%)', 'Exceso (>+10%)'],
       datasets:[{
-        data:[nCrit,nDefReg,nNorm,nExceso],
+        data:[+haCrit.toFixed(1), +haDefReg.toFixed(1), +haNorm.toFixed(1), +haExceso.toFixed(1)],
         backgroundColor:['#f87171','#fbbf24','#4ade80','#7dd3fc'],
         borderWidth:0, hoverOffset:5
       }]
     },
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{ legend:{ position:'bottom',
-        labels:{ color:'#94a3b8', font:{size:9}, padding:6,
+        labels:{ color: legendC, font:{size:9}, padding:6,
           generateLabels: chart => chart.data.labels.map((l,i) => ({
-            text: `${l}  (${chart.data.datasets[0].data[i]})`,
+            text: `${l}  (${chart.data.datasets[0].data[i].toLocaleString('es')} ha)`,
             fillStyle: chart.data.datasets[0].backgroundColor[i],
+            fontColor: legendC,
             strokeStyle:'transparent', lineWidth:0, index:i
           }))
         }
@@ -2644,12 +2583,12 @@ function renderCaudales() {
     }
   });
 
-  // ── Chart: Evolution temporal — fechas dd/mm/yyyy como etiquetas ──
+  // ── Chart: Evolution temporal ──
   const dateMap = new Map();
   filtered.forEach(r => r.desvs.forEach(d => {
     if (!dateMap.has(d.label)) dateMap.set(d.label, true);
   }));
-  const allDates = [...dateMap.keys()]; // en orden original (más reciente primero)
+  const allDates = [...dateMap.keys()];
 
   const top6 = [...stats].filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,6);
   const LINECOLS = ['#38bdf8','#4ade80','#fbbf24','#c084fc','#f87171','#fb923c'];
@@ -2670,13 +2609,13 @@ function renderCaudales() {
     },
     options:{ responsive:true, maintainAspectRatio:false,
       plugins:{
-        legend:{ labels:{color:'#94a3b8',font:{size:10}} },
+        legend:{ labels:{color:legendC,font:{size:10}} },
         tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1)}%  ${cldLabel(ctx.parsed.y)}` }}
       },
       scales:{
-        x:{ ticks:{color:'#94a3b8',font:{size:9},maxRotation:55}, grid:{color:'rgba(255,255,255,.06)'} },
-        y:{ ticks:{color:'#94a3b8',font:{size:10},callback:v=>v+'%'}, grid:{color:'rgba(255,255,255,.08)'},
-            title:{display:true,text:'Desviación %',color:'#64748b',font:{size:10}} }
+        x:{ ticks:{color:tickC,font:{size:9},maxRotation:55}, grid:{color:gridC} },
+        y:{ ticks:{color:tickC,font:{size:10},callback:v=>v+'%'}, grid:{color:gridC},
+            title:{display:true,text:'Desviación %',color:tickC,font:{size:10,weight:'bold'}} }
       }
     }
   });
@@ -3145,6 +3084,13 @@ function applyTheme() {
     // Legend
     if (ch.options.plugins?.legend?.labels) {
       ch.options.plugins.legend.labels.color = legendColor;
+      // For doughnut charts using generateLabels (e.g. caud-dist), force color update
+      if (ch.config?.type === 'doughnut' && ch.options.plugins.legend.labels.generateLabels) {
+        const origGen = ch.options.plugins.legend.labels.generateLabels;
+        ch.options.plugins.legend.labels.generateLabels = (chart) => {
+          return origGen(chart).map(item => ({ ...item, fontColor: legendColor }));
+        };
+      }
     }
     // Tooltip
     if (ch.options.plugins?.tooltip) {
@@ -3206,10 +3152,153 @@ try {
   const saved = localStorage.getItem('riego-theme');
   if (saved === 'light') { DARK_MODE = false; document.body.classList.add('light'); }
 } catch(e) {}
-// Set initial toggle icon
-window.addEventListener('DOMContentLoaded', () => {
+
+// ═══════════════════════════════════════════════
+//  INDEXEDDB PERSISTENCE — save/restore Excel
+// ═══════════════════════════════════════════════
+const IDB_NAME    = 'riego-dashboard';
+const IDB_STORE   = 'excel-cache';
+const IDB_KEY     = 'last-file';
+const IDB_VERSION = 1;
+
+function openIDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) {
+        db.createObjectStore(IDB_STORE);
+      }
+    };
+    req.onsuccess  = e => resolve(e.target.result);
+    req.onerror    = e => reject(e.target.error);
+  });
+}
+
+async function saveFileToIDB(arrayBuffer, fileName) {
+  try {
+    const db = await openIDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put({ buffer: arrayBuffer, name: fileName, saved: Date.now() }, IDB_KEY);
+    return new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+  } catch(e) { console.warn('IDB save error:', e); }
+}
+
+async function loadFileFromIDB() {
+  try {
+    const db = await openIDB();
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+    return new Promise((res, rej) => {
+      req.onsuccess = () => res(req.result || null);
+      req.onerror   = () => res(null);
+    });
+  } catch(e) { console.warn('IDB load error:', e); return null; }
+}
+
+async function clearFileFromIDB() {
+  try {
+    const db = await openIDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).delete(IDB_KEY);
+  } catch(e) { console.warn('IDB clear error:', e); }
+}
+
+// Process a raw ArrayBuffer (same logic as FileReader result inside handleFile)
+function processArrayBuffer(arrayBuffer, fileName) {
+  updateLoadMsg('Procesando hoja 1...');
+  setTimeout(() => {
+    try {
+      const wb = XLSX.read(arrayBuffer, {
+        type:'array', cellDates:true, cellNF:false,
+        cellHTML:false, cellStyles:false, sheetStubs:false
+      });
+
+      const sheet1 = wb.Sheets[wb.SheetNames[0]];
+      const json1  = XLSX.utils.sheet_to_json(sheet1, { defval:null, raw:false });
+      if (!json1.length || !json1[0].hasOwnProperty('semana'))
+        throw new Error('Formato inválido: falta columna "semana"');
+
+      updateLoadMsg('Procesando hoja 2...');
+      setTimeout(() => {
+        let json2 = [];
+        if (wb.SheetNames.length > 1) {
+          try {
+            const sheet2 = wb.Sheets[wb.SheetNames[1]];
+            const raw2   = XLSX.utils.sheet_to_json(sheet2, { defval:null, header:1, raw:false });
+            let hdrIdx   = -1;
+            for (let i = 0; i < Math.min(10, raw2.length); i++) {
+              if (raw2[i] && raw2[i].some(c => c === 'EQ-TR')) { hdrIdx = i; break; }
+            }
+            if (hdrIdx >= 0) {
+              const hdrs   = raw2[hdrIdx];
+              const eqtrCol = hdrs.indexOf('EQ-TR');
+              for (let i = hdrIdx + 1; i < raw2.length; i++) {
+                const row = raw2[i];
+                if (!row || !row[eqtrCol]) continue;
+                const obj = {};
+                hdrs.forEach((h, j) => { if (h != null) obj[h] = row[j] ?? null; });
+                json2.push(obj);
+              }
+            }
+          } catch(e2) { console.warn('Hoja2 error:', e2); }
+        }
+
+        updateLoadMsg('Generando dashboard...');
+        setTimeout(() => {
+          RAW     = parseData(json1);
+          HARVEST = parseHarvest(json2);
+          PROGRAMA = [];
+          if (wb.SheetNames.length > 2) {
+            try {
+              const s3 = wb.Sheets[wb.SheetNames[2]];
+              const j3 = XLSX.utils.sheet_to_json(s3, { defval:null, raw:true });
+              PROGRAMA = parsePrograma(j3);
+            } catch(e3) { console.warn('Hoja3 error:', e3); }
+          }
+          CAUDALES = [];
+          if (wb.SheetNames.length > 3) {
+            try {
+              const s4 = wb.Sheets[wb.SheetNames[3]];
+              const j4 = XLSX.utils.sheet_to_json(s4, { defval:null, raw:true, header:1 });
+              CAUDALES = parseCaudales(j4);
+            } catch(e4) { console.warn('Hoja4 error:', e4); }
+          }
+          Object.keys(MS).forEach(k => { MS[k].sel = new Set(); });
+          DET_TAB = 'TOTAL'; SEM_TAB = null;
+
+          // Update file name label if available
+          if (fileName) {
+            const fnEl = document.getElementById('file-name');
+            if (fnEl) fnEl.textContent = fileName;
+          }
+          initDashboard();
+        }, 30);
+      }, 30);
+    } catch(err) {
+      showLoading(false);
+      const errEl = document.getElementById('error-msg');
+      if (errEl) { errEl.style.display = 'block'; errEl.textContent = '⚠ ' + err.message; }
+      console.error(err);
+    }
+  }, 30);
+}
+
+// Set initial toggle icon & try to restore cached Excel
+window.addEventListener('DOMContentLoaded', async () => {
   const btn = document.getElementById('theme-toggle');
   if (btn) btn.textContent = DARK_MODE ? '🌙' : '☀️';
+
+  // Try to restore last loaded Excel from IndexedDB
+  showLoading(true);
+  updateLoadMsg('Verificando datos guardados...');
+  const cached = await loadFileFromIDB();
+  if (cached && cached.buffer) {
+    updateLoadMsg('Cargando datos guardados...');
+    processArrayBuffer(cached.buffer, cached.name || '');
+  } else {
+    showLoading(false);
+  }
 });
 
 </script>
