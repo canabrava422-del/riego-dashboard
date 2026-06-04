@@ -3289,6 +3289,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   const btn = document.getElementById('theme-toggle');
   if (btn) btn.textContent = DARK_MODE ? '🌙' : '☀️';
 
+  // Force SW update check immediately on every open
+  if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+    navigator.serviceWorker.ready.then(reg => reg.update().catch(() => {}));
+  }
+
   // Try to restore last loaded Excel from IndexedDB
   showLoading(true);
   updateLoadMsg('Verificando datos guardados...');
