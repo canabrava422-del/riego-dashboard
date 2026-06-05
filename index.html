@@ -3031,56 +3031,64 @@ function doUpdate() {
   setTimeout(() => window.location.reload(), 1500);
 }
 
-// Listen for SW_UPDATED message (when SW activates and takes control)
-if (navigator.serviceWorker) {
-  navigator.serviceWorker.addEventListener('message', e => {
-    if (e.data && e.data.type === 'SW_UPDATED') {
-      showUpdateBanner();
-    }
-  });
-}
+// SW message listener moved into registration block above
 
 // ── Register SW and detect updates ──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none', scope: './' })
+    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
       .then(reg => {
         _swReg = reg;
 
-        // CASE 1: New SW waiting already (app was open in bg and SW updated)
+        // ── Detect new SW in any state ──
+        const trackSW = (sw) => {
+          if (!sw) return;
+          sw.addEventListener('statechange', () => {
+            // 'installed' + controller exists = new version waiting
+            if (sw.state === 'installed' && navigator.serviceWorker.controller) {
+              _newWorker = sw;
+              showUpdateBanner();
+            }
+          });
+        };
+
+        // CASE 1: Already waiting (user reopened app after update downloaded in bg)
         if (reg.waiting) {
           _newWorker = reg.waiting;
           showUpdateBanner();
         }
 
-        // CASE 2: SW starts installing while page is open
+        // CASE 2: Currently installing
+        if (reg.installing) trackSW(reg.installing);
+
+        // CASE 3: New SW found while page is open
         reg.addEventListener('updatefound', () => {
-          const newSW = reg.installing;
-          if (!newSW) return;
-          newSW.addEventListener('statechange', () => {
-            if (newSW.state === 'installed' && navigator.serviceWorker.controller) {
-              // New version ready, old one still in control
-              _newWorker = newSW;
-              showUpdateBanner();
-            }
-          });
+          trackSW(reg.installing);
         });
 
-        // CASE 3: Periodic check every 60 seconds (works even when installed as app)
-        setInterval(() => {
-          reg.update().catch(() => {});
-        }, 60 * 1000);
+        // CASE 4: Periodic poll — every 30s (catches updates when app stays open)
+        setInterval(() => reg.update().catch(() => {}), 30 * 1000);
 
-        // CASE 4: Check on visibility change (user comes back to app)
+        // CASE 5: Re-check when user returns to app (tab/home screen)
         document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') {
-            reg.update().catch(() => {});
+          if (document.visibilityState === 'visible') reg.update().catch(() => {});
+        });
+
+        // CASE 6: Listen for SW_UPDATED message from activate event
+        navigator.serviceWorker.addEventListener('message', ev => {
+          if (ev.data?.type === 'SW_UPDATED') {
+            showUpdateBanner();
           }
         });
 
-        console.log('[PWA] SW registered, version check active');
+        // CASE 7: controllerchange = new SW took control → reload
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          window.location.reload();
+        });
+
+        console.log('[PWA] SW registered v' + (reg.active?.scriptURL || ''));
       })
-      .catch(() => { /* SW unavailable when opening HTML directly - normal */ });
+      .catch(() => { /* SW not available outside HTTPS/Netlify - normal when opening file directly */ });
   });
 }
 
