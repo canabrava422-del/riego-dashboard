@@ -624,6 +624,8 @@ canvas{display:block;background:var(--surface);border-radius:4px}
     <button class="snav-btn" onclick="showSection('cosecha',event)">🌾 Cosecha</button>
     <button class="snav-btn" onclick="showSection('programa',event)">📋 Programa</button>
     <button class="snav-btn" onclick="showSection('caudales',event)">💧 Caudales</button>
+    <button class="snav-btn" onclick="showSection('infoGeneral',event)">📁 Info General</button>
+    <button class="snav-btn" onclick="showSection('humedad',event)">💧 Humedad</button>
   </div>
 
   <!-- FILTERS -->
@@ -982,7 +984,7 @@ canvas{display:block;background:var(--surface);border-radius:4px}
       <div class="g">
         <div class="panel c12">
           <div class="ph"><div class="pt">Evolución temporal de desviación · últimas semanas registradas</div></div>
-          <div class="chart-wrap"><canvas id="ch-caud-evol" height="220"></canvas></div>
+          <div class="chart-wrap"><canvas id="ch-caud-evol" height="340"></canvas></div>
         </div>
       </div>
       <div class="g">
@@ -999,6 +1001,79 @@ canvas{display:block;background:var(--surface);border-radius:4px}
             </table>
           </div>
         </div>
+      </div>
+    </div>
+
+
+    <!-- ══════════════════ INFO GENERAL (Hoja5) ══════════════════ -->
+    <div class="section" id="sec-infoGeneral">
+      <div class="kpi-grid" id="ig-kpis" style="margin-bottom:1rem"></div>
+      <div class="panel c12" style="margin-bottom:.7rem">
+        <div class="ph">
+          <div class="pt">Información General por EQ-TR <span style="font-size:.65rem;color:var(--text3)">· columnas seleccionadas (amarillas)</span></div>
+        </div>
+        <div class="tw"><table class="tbl" id="tbl-info-general">
+          <thead><tr>
+            <th>EQ-TR</th><th>EQ</th><th>TR</th><th>F.Cultivo</th><th class="r">Edad (días)</th>
+            <th class="r">THM</th><th class="r">Área</th><th>Variedad</th>
+            <th>Estrato</th><th class="r">Caudal</th><th>Surco</th>
+          </tr></thead>
+          <tbody id="tbody-info-general"></tbody>
+        </table></div>
+      </div>
+      <div class="g">
+        <div class="panel c6">
+          <div class="ph"><div class="pt">Distribución por variedad</div></div>
+          <div class="chart-wrap" style="max-height:280px"><canvas id="ch-ig-var" height="260"></canvas></div>
+        </div>
+        <div class="panel c6">
+          <div class="ph"><div class="pt">THM por EQ-TR</div></div>
+          <div class="chart-wrap"><canvas id="ch-ig-thm" height="260"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ HUMEDAD SUELO (Hoja6) ══════════════════ -->
+    <div class="section" id="sec-humedad">
+      <div class="kpi-grid" id="hum-kpis" style="margin-bottom:1rem"></div>
+      <div class="g">
+        <div class="panel c8">
+          <div class="ph"><div class="pt">Contenido de humedad (%) por EQ-TR · promedio por punto</div></div>
+          <div class="chart-wrap"><canvas id="ch-hum-bar" height="260"></canvas></div>
+        </div>
+        <div class="panel c4">
+          <div class="ph"><div class="pt">Distribución de humedad</div></div>
+          <div class="chart-wrap" style="max-height:260px"><canvas id="ch-hum-dist" height="260"></canvas></div>
+        </div>
+      </div>
+      <div class="g">
+        <div class="panel c6">
+          <div class="ph"><div class="pt">Temperatura (°C) por EQ-TR</div></div>
+          <div class="chart-wrap"><canvas id="ch-hum-temp" height="240"></canvas></div>
+        </div>
+        <div class="panel c6">
+          <div class="ph"><div class="pt">CE (ms/cm) por EQ-TR</div></div>
+          <div class="chart-wrap"><canvas id="ch-hum-ce" height="240"></canvas></div>
+        </div>
+      </div>
+      <div class="g">
+        <div class="panel c12">
+          <div class="ph"><div class="pt">Evolución de humedad por fecha · top EQ-TR</div></div>
+          <div class="chart-wrap"><canvas id="ch-hum-evol" height="220"></canvas></div>
+        </div>
+      </div>
+      <div class="panel c12" style="margin-top:.7rem">
+        <div class="ph"><div class="pt">Tabla detallada · Humedad del suelo por EQ-TR</div></div>
+        <div class="tw"><table class="tbl">
+          <thead><tr>
+            <th>EQ-TR</th><th>EQ</th><th>TR</th><th>Fecha medición</th>
+            <th class="r">N° Puntos</th><th class="r">Hum. prom (%)</th>
+            <th class="r">Hum. mín (%)</th><th class="r">Hum. máx (%)</th>
+            <th class="r">Temp. prom (°C)</th><th class="r">CE prom (ms/cm)</th>
+            <th>Estado humedad</th>
+          </tr></thead>
+          <tbody id="tbody-humedad"></tbody>
+        </table></div>
       </div>
     </div>
 
@@ -1067,6 +1142,8 @@ let RAW = [];
 let HARVEST = [];   // hoja2: proyección de cosecha
 let PROGRAMA = [];  // hoja3: programa de riego
 let CAUDALES = [];  // hoja4: desviación de caudales
+let INFOGENS = [];  // hoja5: información general (columnas amarillas)
+let HUMEDAD  = [];  // hoja6: % humedad del suelo
 let LEVEL = 'EQ';
 let ACUM_MODE = 'semana';
 let SEM_MODE = 'line';
@@ -1617,8 +1694,10 @@ function renderSection(id, data) {
   if(id==='fallas')    renderFallas(data);
   if(id==='detalle')   renderDetalle(data);
   if(id==='cosecha')   renderCosecha(data);
-  if(id==='programa')  renderPrograma();
-  if(id==='caudales')  renderCaudales();
+  if(id==='programa')    renderPrograma();
+  if(id==='caudales')    renderCaudales();
+  if(id==='infoGeneral') renderInfoGeneral();
+  if(id==='humedad')     renderHumedad();
 }
 
 // ═══════════════════════════════════════════════
@@ -2650,8 +2729,11 @@ function renderCaudales() {
       },
       scales:{
         x:{ ticks:{color:tickC,font:{size:9},maxRotation:55}, grid:{color:gridC} },
-        y:{ ticks:{color:tickC,font:{size:10},callback:v=>v+'%'}, grid:{color:gridC},
-            title:{display:true,text:'Desviación %',color:tickC,font:{size:10,weight:'bold'}} }
+        y:{ grid:{color:gridC},
+            title:{display:true,text:'Desviación %',color:tickC,font:{size:10,weight:'bold'}},
+            min: (()=>{ const vals=top6.flatMap(r=>r.desvs.map(d=>d.val)).filter(v=>v!=null); return vals.length?Math.floor((Math.min(...vals)-5)/5)*5:-55; })(),
+            max: (()=>{ const vals=top6.flatMap(r=>r.desvs.map(d=>d.val)).filter(v=>v!=null); return vals.length?Math.ceil((Math.max(...vals)+5)/5)*5:20; })(),
+            ticks:{ color:tickC, font:{size:10}, callback:v=>v+'%', stepSize:5 } }
       }
     }
   });
@@ -3036,7 +3118,10 @@ function doUpdate() {
 // ── Register SW and detect updates ──
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+    navigator.serviceWorker.register('./sw.js', {
+          updateViaCache: 'none',
+          scope: './'
+        })
       .then(reg => {
         _swReg = reg;
 
@@ -3119,8 +3204,10 @@ function applyTheme() {
     }
     // Sections that don't use RAW data
     if (CURRENT_SECTION === 'cosecha')  { if(typeof renderCosecha  === 'function') renderCosecha(); }
-    if (CURRENT_SECTION === 'programa') { if(typeof renderPrograma === 'function') renderPrograma(); }
-    if (CURRENT_SECTION === 'caudales') { if(typeof renderCaudales === 'function') renderCaudales(); }
+    if (CURRENT_SECTION === 'programa')    { if(typeof renderPrograma  === 'function') renderPrograma(); }
+    if (CURRENT_SECTION === 'caudales')    { if(typeof renderCaudales  === 'function') renderCaudales(); }
+    if (CURRENT_SECTION === 'infoGeneral') { if(typeof renderInfoGeneral=== 'function') renderInfoGeneral(); }
+    if (CURRENT_SECTION === 'humedad')     { if(typeof renderHumedad   === 'function') renderHumedad(); }
   }, 60);
 }
 
@@ -3265,6 +3352,24 @@ function processArrayBuffer(arrayBuffer, fileName) {
               CAUDALES = parseCaudales(j4);
             } catch(e4) { console.warn('Hoja4 error:', e4); }
           }
+          // Hoja5 — información general
+          INFOGENS = [];
+          if (wb.SheetNames.length > 4) {
+            try {
+              const s5 = wb.Sheets[wb.SheetNames[4]];
+              const j5 = XLSX.utils.sheet_to_json(s5, { defval:null, raw:false });
+              INFOGENS = parseInfoGen(j5);
+            } catch(e5) { console.warn('Hoja5 error:', e5); }
+          }
+          // Hoja6 — humedad del suelo
+          HUMEDAD = [];
+          if (wb.SheetNames.length > 5) {
+            try {
+              const s6 = wb.Sheets[wb.SheetNames[5]];
+              const j6 = XLSX.utils.sheet_to_json(s6, { defval:null, raw:false });
+              HUMEDAD = parseHumedad(j6);
+            } catch(e6) { console.warn('Hoja6 error:', e6); }
+          }
           Object.keys(MS).forEach(k => { MS[k].sel = new Set(); });
           DET_TAB = 'TOTAL'; SEM_TAB = null;
 
@@ -3306,6 +3411,393 @@ window.addEventListener('DOMContentLoaded', async () => {
     showLoading(false);
   }
 });
+
+
+// ═══════════════════════════════════════════════
+//  HOJA5 — INFO GENERAL (columnas amarillas)
+// ═══════════════════════════════════════════════
+function parseInfoGen(rows) {
+  if (!rows || !rows.length) return [];
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  return rows.map(r => {
+    const fCultivoRaw = r['FCultivo'];
+    const fCultivoDate = parseXLDate(fCultivoRaw);
+    const fCultivoStr  = fCultivoDate && !isNaN(fCultivoDate)
+      ? fCultivoDate.toISOString().slice(0,10) : null;
+    // Edad en días = hoy - FCultivo
+    let edad = null;
+    if (fCultivoDate && !isNaN(fCultivoDate)) {
+      edad = Math.round((today - fCultivoDate) / (1000*60*60*24));
+    }
+    return {
+      eqtr:      (r['EQ']||'') + (r['TR']||''),
+      eq:        String(r['EQ']||'').trim(),
+      tr:        String(r['TR']||'').trim(),
+      fd:        String(r['FD']||'').trim(),
+      fCultivo:  fCultivoStr,
+      edad,                   // días desde FCultivo hasta hoy
+      thm:       parseFloat(r['THM']) || null,
+      area:      parseFloat(r['Area']) || null,
+      variedad:  String(r['Var']||'').trim(),
+      estrato:   String(r['Est']||'').trim(),
+      caudal:    parseFloat(r['Caudal']) || null,
+      surco:     String(r['Surco']||'').trim(),
+    };
+  }).filter(r => r.eq && r.tr);
+}
+
+function renderInfoGeneral() {
+  if (!INFOGENS.length) {
+    document.getElementById('ig-kpis').innerHTML =
+      '<div class="empty" style="grid-column:span 4">No hay datos (Hoja5 no detectada)</div>';
+    return;
+  }
+
+  // Apply filters
+  const selFD   = getSelMS('ms-fd');
+  const selEQ   = getSelMS('ms-eq');
+  const selEQTR = getSelMS('ms-eqtr');
+  const filtered = INFOGENS.filter(r => {
+    if (selFD.length   && !selFD.includes(r.fd))     return false;
+    if (selEQ.length   && !selEQ.includes(r.eq))     return false;
+    if (selEQTR.length && !selEQTR.includes(r.eqtr)) return false;
+    return true;
+  });
+
+  // KPIs
+  const totalArea = filtered.reduce((s,r)=>s+(r.area||0),0);
+  const avgThm    = filtered.filter(r=>r.thm).reduce((s,r)=>s+r.thm,0) / (filtered.filter(r=>r.thm).length||1);
+  const varSet    = new Set(filtered.map(r=>r.variedad).filter(Boolean));
+  document.getElementById('ig-kpis').innerHTML = `
+    <div class="kpi kc1"><div class="kpi-val">${filtered.length}</div><div class="kpi-lbl">EQ-TR registrados</div></div>
+    <div class="kpi kc2"><div class="kpi-val" style="color:var(--green)">${totalArea.toFixed(1)}</div><div class="kpi-lbl">Área total (ha)</div></div>
+    <div class="kpi kc3"><div class="kpi-val" style="color:var(--amber)">${avgThm.toFixed(2)}</div><div class="kpi-lbl">THM promedio</div></div>
+    <div class="kpi kc5"><div class="kpi-val" style="color:var(--violet)">${varSet.size}</div><div class="kpi-lbl">Variedades</div></div>
+  `;
+
+  // Table
+  document.getElementById('tbody-info-general').innerHTML = filtered.map(r => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:.71rem;color:var(--blue)">${r.eqtr||r.eq+r.tr}</td>
+      <td class="m">${r.eq}</td>
+      <td class="m">${r.tr}</td>
+      <td class="m">${r.fCultivo||'—'}</td>
+      <td class="r" style="font-family:var(--mono);font-size:.71rem;color:${r.edad!=null?(r.edad>365?'var(--blue)':r.edad>180?'var(--green)':'var(--amber)'):'var(--text3)'}">${r.edad!=null?r.edad+' d':'—'}</td>
+      <td class="r" style="font-weight:600;color:${r.thm>=12?'var(--green)':r.thm>=11?'var(--amber)':'var(--red)'}">${r.thm!=null?r.thm.toFixed(2):'—'}</td>
+      <td class="r">${r.area!=null?r.area.toFixed(1):'—'}</td>
+      <td class="m">${r.variedad||'—'}</td>
+      <td class="m">${r.estrato||'—'}</td>
+      <td class="r">${r.caudal!=null?r.caudal.toFixed(2):'—'}</td>
+      <td class="m">${r.surco||'—'}</td>
+    </tr>`).join('') || '<tr><td colspan="11" class="empty">Sin datos</td></tr>';
+
+  // Chart: distribución por variedad (donut)
+  dc('ch-ig-var');
+  const varCount = {};
+  filtered.forEach(r => { if(r.variedad) varCount[r.variedad] = (varCount[r.variedad]||0)+1; });
+  const varKeys = Object.keys(varCount).sort((a,b)=>varCount[b]-varCount[a]);
+  charts['ch-ig-var'] = new Chart(document.getElementById('ch-ig-var').getContext('2d'), {
+    type:'doughnut',
+    data:{ labels:varKeys, datasets:[{
+      data:varKeys.map(k=>varCount[k]),
+      backgroundColor:varKeys.map((_,i)=>getP(i)+'cc'),
+      borderColor:varKeys.map((_,i)=>getP(i)), borderWidth:2, hoverOffset:5
+    }]},
+    options:{ responsive:true, animation:false, cutout:'55%',
+      plugins:{ legend:{ position:'right', labels:{ color:tk(), font:{size:9,weight:'500'}, boxWidth:10, padding:8 }}}}
+  });
+
+  // Chart: THM por EQ-TR (horizontal bar)
+  dc('ch-ig-thm');
+  const thmRows = filtered.filter(r=>r.thm!=null).sort((a,b)=>b.thm-a.thm);
+  charts['ch-ig-thm'] = new Chart(document.getElementById('ch-ig-thm').getContext('2d'), {
+    type:'bar',
+    data:{ labels:thmRows.map(r=>r.eqtr||r.eq+r.tr), datasets:[{
+      label:'THM',
+      data:thmRows.map(r=>r.thm),
+      backgroundColor:thmRows.map(r=>r.thm>=12?(DARK_MODE?'#4ade80':'#15803d'):r.thm>=11?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#f87171':'#b91c1c')),
+      borderRadius:3, barPercentage:.7
+    }]},
+    options:{ ...getCD(), indexAxis:'y',
+      plugins:{ legend:{display:false},
+        annotation:{ annotations:{ line1:{ type:'line', xMin:12, xMax:12, borderColor:'rgba(255,255,255,.4)', borderWidth:1.5, borderDash:[4,3] }}}},
+      scales:{
+        x:{ ticks:{color:tk(),font:{size:9}}, grid:{color:gc()}, min:0 },
+        y:{ ticks:{color:tk(),font:{size:8}}, grid:{color:gc()} }
+      }
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════
+//  HOJA6 — HUMEDAD DEL SUELO
+// ═══════════════════════════════════════════════
+function parseHumedad(rows) {
+  if (!rows || !rows.length) return [];
+  return rows.map(r => {
+    const fechaRaw = r['Fecha'];
+    let fechaStr = null;
+    if (fechaRaw) {
+      const d = parseXLDate(fechaRaw);
+      if (d && !isNaN(d)) fechaStr = d.toISOString().slice(0,10);
+      else if (typeof fechaRaw === 'string') fechaStr = fechaRaw.slice(0,10);
+    }
+    return {
+      eqtr:   String(r['EQ-TR']||'').trim(),
+      eq:     String(r['EQ']||'').trim(),
+      tr:     String(r['TR']||'').trim(),
+      fd:     String(r['FD']||'').trim(),
+      par:    parseInt(r['PAR']) || null,
+      fecha:  fechaStr,
+      hum:    parseFloat(r['Contenido de humedad (%)']) || null,
+      temp:   parseFloat(r['Temperatura (°C)']) || null,
+      ce:     parseFloat(r['CE (ms/cm)']) || null,
+      spad:   parseFloat(r['Spad (°)']) || null,
+      fRiego: r['Fecha último riego'] ? String(r['Fecha último riego']).slice(0,10) : null,
+    };
+  }).filter(r => r.eqtr && r.hum != null && r.temp < 100); // filter outlier temps
+}
+
+function renderHumedad() {
+  if (!HUMEDAD.length) {
+    document.getElementById('hum-kpis').innerHTML =
+      '<div class="empty" style="grid-column:span 4">No hay datos (Hoja6 no detectada)</div>';
+    return;
+  }
+
+  // Apply filters
+  const selFD   = getSelMS('ms-fd');
+  const selEQ   = getSelMS('ms-eq');
+  const selEQTR = getSelMS('ms-eqtr');
+  const filtered = HUMEDAD.filter(r => {
+    if (selFD.length   && !selFD.includes(r.fd))     return false;
+    if (selEQ.length   && !selEQ.includes(r.eq))     return false;
+    if (selEQTR.length && !selEQTR.includes(r.eqtr)) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    document.getElementById('hum-kpis').innerHTML =
+      '<div class="empty" style="grid-column:span 4">Sin datos para los filtros seleccionados</div>';
+    return;
+  }
+
+  // Humedad status thresholds (typical sugarcane: optimal 20-28%)
+  const humColor = v => {
+    if (v == null)  return DARK_MODE?'#475569':'#6b7280';
+    if (v >= 20 && v <= 28) return DARK_MODE?'#4ade80':'#15803d';   // óptimo
+    if (v < 20) return v < 15 ? (DARK_MODE?'#f87171':'#b91c1c') : (DARK_MODE?'#fbbf24':'#b45309'); // bajo
+    return DARK_MODE?'#7dd3fc':'#1d4ed8';  // exceso
+  };
+  const humLabel = v => {
+    if (v == null)  return '—';
+    if (v >= 20 && v <= 28) return '🟢 Óptima';
+    if (v < 15)  return '🔴 Muy baja';
+    if (v < 20)  return '🟡 Baja';
+    return '🔵 Elevada';
+  };
+
+  // ── Aggregate by EQ-TR: only LAST evaluation date per EQ-TR ──
+  // Step 1: find the last date for each EQ-TR within filtered range
+  const lastDateByEQTR = new Map();
+  filtered.forEach(r => {
+    if (!r.fecha) return;
+    const cur = lastDateByEQTR.get(r.eqtr);
+    if (!cur || r.fecha > cur) lastDateByEQTR.set(r.eqtr, r.fecha);
+  });
+
+  // Step 2: aggregate only rows from that last date
+  const byEQTR = new Map();
+  filtered.forEach(r => {
+    const lastDate = lastDateByEQTR.get(r.eqtr);
+    if (r.fecha !== lastDate) return;  // skip older evaluations
+    if (!byEQTR.has(r.eqtr)) byEQTR.set(r.eqtr, { eqtr:r.eqtr, eq:r.eq, tr:r.tr,
+      hums:[], temps:[], ces:[], fechas:new Set(), n:0 });
+    const g = byEQTR.get(r.eqtr);
+    if (r.hum  != null) g.hums.push(r.hum);
+    if (r.temp != null && r.temp < 100) g.temps.push(r.temp);
+    if (r.ce   != null) g.ces.push(r.ce);
+    if (r.fecha) g.fechas.add(r.fecha);
+    g.n++;
+  });
+  const stats = [...byEQTR.values()].map(g => ({
+    ...g,
+    humAvg:  g.hums.length  ? +(g.hums.reduce((a,b)=>a+b,0)/g.hums.length).toFixed(2)  : null,
+    humMin:  g.hums.length  ? Math.min(...g.hums)  : null,
+    humMax:  g.hums.length  ? Math.max(...g.hums)  : null,
+    tempAvg: g.temps.length ? +(g.temps.reduce((a,b)=>a+b,0)/g.temps.length).toFixed(1) : null,
+    ceAvg:   g.ces.length   ? +(g.ces.reduce((a,b)=>a+b,0)/g.ces.length).toFixed(3)     : null,
+    lastFecha: [...g.fechas].sort().pop(),
+    nPuntos: g.n,
+  })).sort((a,b)=>a.eqtr.localeCompare(b.eqtr));
+
+  const allHums  = filtered.map(r=>r.hum).filter(v=>v!=null);
+  const globalHum = allHums.length ? +(allHums.reduce((a,b)=>a+b,0)/allHums.length).toFixed(2) : null;
+  const nOpt  = stats.filter(r=>r.humAvg>=20&&r.humAvg<=28).length;
+  const nBaja = stats.filter(r=>r.humAvg<20).length;
+  const nAlta = stats.filter(r=>r.humAvg>28).length;
+  const fechas = [...new Set(filtered.map(r=>r.fecha).filter(Boolean))].sort();
+
+  // KPIs
+  document.getElementById('hum-kpis').innerHTML = `
+    <div class="kpi kc1"><div class="kpi-val">${stats.length}</div><div class="kpi-lbl">EQ-TR evaluados</div></div>
+    <div class="kpi kc2"><div class="kpi-val" style="color:${humColor(globalHum)}">${globalHum!=null?globalHum+'%':'—'}</div><div class="kpi-lbl">Humedad promedio global</div></div>
+    <div class="kpi kc5"><div class="kpi-val" style="color:${DARK_MODE?'#4ade80':'#15803d'}">${nOpt}</div><div class="kpi-lbl">Óptima (20–28%)</div></div>
+    <div class="kpi kc3"><div class="kpi-val" style="color:${DARK_MODE?'#fbbf24':'#b45309'}">${nBaja}</div><div class="kpi-lbl">Baja (&lt;20%)</div></div>
+    <div class="kpi kc4"><div class="kpi-val" style="color:${DARK_MODE?'#7dd3fc':'#1d4ed8'}">${nAlta}</div><div class="kpi-lbl">Elevada (&gt;28%)</div></div>
+    <div class="kpi kc6"><div class="kpi-val">${fechas.length}</div><div class="kpi-lbl">Fechas de evaluación</div></div>
+  `;
+
+  // Chart: humedad promedio por EQ-TR (horizontal bar)
+  dc('ch-hum-bar');
+  const sortedHum = [...stats].sort((a,b)=>(b.humAvg||0)-(a.humAvg||0));
+  charts['ch-hum-bar'] = new Chart(document.getElementById('ch-hum-bar').getContext('2d'), {
+    type:'bar',
+    data:{ labels:sortedHum.map(r=>r.eqtr), datasets:[{
+      label:'Humedad prom (%)',
+      data:sortedHum.map(r=>r.humAvg),
+      backgroundColor:sortedHum.map(r=>humColor(r.humAvg)),
+      borderRadius:3, barPercentage:.75
+    },{
+      label:'Mín', data:sortedHum.map(r=>r.humMin),
+      backgroundColor:'transparent', borderColor:sortedHum.map(r=>humColor(r.humAvg)),
+      borderWidth:1.5, type:'bar', barPercentage:.4
+    }]},
+    options:{ ...getCD(), indexAxis:'y',
+      plugins:{ legend:{ labels:{ color:tk(), font:{size:9,weight:'500'}, boxWidth:9 }}},
+      scales:{
+        x:{ ticks:{color:tk(),font:{size:9},callback:v=>v+'%'}, grid:{color:gc()},
+          min: Math.max(0, Math.floor((Math.min(...sortedHum.map(r=>r.humMin||0)) - 3) / 5) * 5),
+          max: Math.ceil((Math.max(...sortedHum.map(r=>r.humMax||0)) + 3) / 5) * 5,
+          afterDrawChartArea: (chart) => {
+            const ctx2 = chart.ctx;
+            const xOpt = chart.scales.x.getPixelForValue(20);
+            const xMax = chart.scales.x.getPixelForValue(28);
+            ctx2.save();
+            ctx2.fillStyle = DARK_MODE ? 'rgba(74,222,128,.08)' : 'rgba(21,128,61,.08)';
+            ctx2.fillRect(xOpt, chart.chartArea.top, xMax-xOpt, chart.chartArea.height);
+            ctx2.restore();
+          }
+        },
+        y:{ ticks:{color:tk(),font:{size:8}}, grid:{color:gc()} }
+      }
+    }
+  });
+
+  // Chart: distribución donut
+  dc('ch-hum-dist');
+  const distBins = [
+    {l:'Muy baja (<15%)',  mn:0,  mx:15, c:DARK_MODE?'#f87171':'#b91c1c'},
+    {l:'Baja (15–19%)',    mn:15, mx:20, c:DARK_MODE?'#fbbf24':'#b45309'},
+    {l:'Óptima (20–28%)', mn:20, mx:28, c:DARK_MODE?'#4ade80':'#15803d'},
+    {l:'Elevada (>28%)',   mn:28, mx:999,c:DARK_MODE?'#7dd3fc':'#1d4ed8'},
+  ];
+  const allH = filtered.map(r=>r.hum).filter(v=>v!=null);
+  const distCounts = distBins.map(b => allH.filter(v=>v>=b.mn&&v<b.mx).length);
+  charts['ch-hum-dist'] = new Chart(document.getElementById('ch-hum-dist').getContext('2d'), {
+    type:'doughnut',
+    data:{ labels:distBins.map(b=>b.l), datasets:[{
+      data:distCounts, backgroundColor:distBins.map(b=>b.c+'cc'),
+      borderColor:distBins.map(b=>b.c), borderWidth:2, hoverOffset:5
+    }]},
+    options:{ responsive:true, animation:false, cutout:'55%',
+      plugins:{ legend:{ position:'bottom', labels:{ color:tk(), font:{size:9,weight:'500'}, boxWidth:10, padding:6,
+        generateLabels: chart => chart.data.labels.map((l,i)=>({
+          text:`${l}  (${distCounts[i]})`, fillStyle:distBins[i].c+'cc',
+          strokeStyle:distBins[i].c, lineWidth:2, index:i
+        }))
+      }}}}
+  });
+
+  // Chart: temperatura por EQ-TR
+  dc('ch-hum-temp');
+  const sortedTemp = [...stats].filter(r=>r.tempAvg!=null).sort((a,b)=>b.tempAvg-a.tempAvg);
+  charts['ch-hum-temp'] = new Chart(document.getElementById('ch-hum-temp').getContext('2d'), {
+    type:'bar',
+    data:{ labels:sortedTemp.map(r=>r.eqtr), datasets:[{
+      label:'Temp. prom (°C)',
+      data:sortedTemp.map(r=>r.tempAvg),
+      backgroundColor:sortedTemp.map(r=>r.tempAvg>35?(DARK_MODE?'#f87171':'#b91c1c'):(DARK_MODE?'#fb923c':'#ea580c')),
+      borderRadius:3, barPercentage:.7
+    }]},
+    options:{ ...getCD(),
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ ticks:{color:tk(),font:{size:8},maxRotation:45}, grid:{color:gc()} },
+        y:{ ticks:{color:tk(),font:{size:9},callback:v=>v+'°C'}, grid:{color:gc()}, min:20 }
+      }
+    }
+  });
+
+  // Chart: CE por EQ-TR
+  dc('ch-hum-ce');
+  const sortedCE = [...stats].filter(r=>r.ceAvg!=null).sort((a,b)=>b.ceAvg-a.ceAvg);
+  charts['ch-hum-ce'] = new Chart(document.getElementById('ch-hum-ce').getContext('2d'), {
+    type:'bar',
+    data:{ labels:sortedCE.map(r=>r.eqtr), datasets:[{
+      label:'CE prom (ms/cm)',
+      data:sortedCE.map(r=>r.ceAvg),
+      backgroundColor:sortedCE.map(r=>r.ceAvg>0.5?(DARK_MODE?'#f87171':'#b91c1c'):(DARK_MODE?'#4ade80':'#15803d')),
+      borderRadius:3, barPercentage:.7
+    }]},
+    options:{ ...getCD(),
+      plugins:{ legend:{display:false} },
+      scales:{
+        x:{ ticks:{color:tk(),font:{size:8},maxRotation:45}, grid:{color:gc()} },
+        y:{ ticks:{color:tk(),font:{size:9}}, grid:{color:gc()}, min:0 }
+      }
+    }
+  });
+
+  // Chart: evolución de humedad por fecha (top EQ-TR)
+  dc('ch-hum-evol');
+  const top8 = stats.slice(0,8);
+  const byFechaEQTR = new Map();
+  filtered.forEach(r => {
+    if (!r.fecha) return;
+    const key = r.eqtr + '|' + r.fecha;
+    if (!byFechaEQTR.has(key)) byFechaEQTR.set(key, []);
+    if (r.hum != null) byFechaEQTR.get(key).push(r.hum);
+  });
+  charts['ch-hum-evol'] = new Chart(document.getElementById('ch-hum-evol').getContext('2d'), {
+    type:'line',
+    data:{ labels:fechas, datasets:top8.map((r,i)=>({
+      label:r.eqtr, borderColor:getP(i), backgroundColor:'transparent',
+      borderWidth:2, pointRadius:3, tension:.3, spanGaps:true,
+      data:fechas.map(f => {
+        const key = r.eqtr + '|' + f;
+        const vals = byFechaEQTR.get(key) || [];
+        return vals.length ? +(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2) : null;
+      })
+    }))},
+    options:{ ...getCD(),
+      plugins:{ legend:{ labels:{ color:tk(), font:{size:9,weight:'500'}, boxWidth:9 }}},
+      scales:{
+        x:{ ticks:{color:tk(),font:{size:9}}, grid:{color:gc()} },
+        y:{ ticks:{color:tk(),font:{size:9},callback:v=>v+'%'}, grid:{color:gc()},
+            title:{display:true,text:'Humedad (%)',color:tk(),font:{size:9,weight:'700'}},
+            min: (()=>{ const vals=filtered.map(r=>r.hum).filter(v=>v!=null); return vals.length?Math.max(0,Math.floor((Math.min(...vals)-3)/5)*5):0; })(),
+            max: (()=>{ const vals=filtered.map(r=>r.hum).filter(v=>v!=null); return vals.length?Math.ceil((Math.max(...vals)+3)/5)*5:40; })() }
+      }
+    }
+  });
+
+  // Detailed table
+  document.getElementById('tbody-humedad').innerHTML = stats.map(r => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:.71rem;color:var(--blue)">${r.eqtr}</td>
+      <td class="m">${r.eq}</td><td class="m">${r.tr}</td>
+      <td class="m">${r.lastFecha||'—'}</td>
+      <td class="r">${r.nPuntos}</td>
+      <td class="r" style="font-weight:600;color:${humColor(r.humAvg)}">${r.humAvg!=null?r.humAvg+'%':'—'}</td>
+      <td class="r" style="color:${DARK_MODE?'#fca5a5':'#b91c1c'}">${r.humMin!=null?r.humMin+'%':'—'}</td>
+      <td class="r" style="color:${DARK_MODE?'#7dd3fc':'#1d4ed8'}">${r.humMax!=null?r.humMax+'%':'—'}</td>
+      <td class="r">${r.tempAvg!=null?r.tempAvg+'°C':'—'}</td>
+      <td class="r">${r.ceAvg!=null?r.ceAvg:'—'}</td>
+      <td style="font-size:.72rem">${humLabel(r.humAvg)}</td>
+    </tr>`).join('') || '<tr><td colspan="11" class="empty">Sin datos</td></tr>';
+}
 
 </script>
 </body>
