@@ -1,6 +1,6 @@
 // ── Riego Dashboard Service Worker ──
 // Cambia VERSION con cada deploy para forzar actualización en todos los dispositivos
-const VERSION = 'v16';
+const VERSION = 'v17';
 const CACHE   = 'riego-' + VERSION;
 
 const ASSETS = [
