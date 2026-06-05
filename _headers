@@ -1,0 +1,14 @@
+# sw.js must never be cached by the browser (so updates deploy instantly)
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate
+
+# HTML: always revalidate
+/*.html
+  Cache-Control: no-cache
+
+# Assets: cache 1 year
+/icon-*.jpg
+  Cache-Control: public, max-age=31536000
+
+/manifest.json
+  Cache-Control: no-cache
