@@ -2,7 +2,7 @@
   "name": "Riego Dashboard · Magdalena",
   "short_name": "Riego",
   "description": "Cumplimiento de riego y fertilización - Caña Brava",
-  "start_url": "./index.html",
+  "start_url": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0a0f1e",
@@ -25,5 +25,6 @@
     "productivity",
     "utilities"
   ],
-  "lang": "es"
+  "lang": "es",
+  "scope": "./"
 }

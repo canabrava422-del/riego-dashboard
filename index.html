@@ -366,6 +366,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14
 
 /* PANEL */
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;overflow:hidden}
+.panel.res-panel{min-height:150px;display:flex;flex-direction:column}
+.panel.res-panel>div:last-child{flex:1}
 .ph{display:flex;align-items:center;justify-content:space-between;margin-bottom:.8rem;flex-wrap:wrap;gap:.3rem}
 .pt{font-size:.76rem;color:var(--text);font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-family:var(--mono);display:flex;align-items:center;gap:.4rem}
 .pt b{color:var(--blue);font-weight:700}
@@ -695,6 +697,39 @@ canvas{display:block;background:var(--surface);border-radius:4px}
           <div class="chart-wrap"><canvas id="ch-evo" height="210"></canvas></div>
         </div>
       </div>
+
+      <!-- ══ RESÚMENES SECCIONALES ══ -->
+      <div style="margin:.7rem 0 .5rem;font-family:var(--mono);font-size:.72rem;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;font-weight:700;border-top:1px solid var(--border);padding-top:.7rem">
+        Resumen general · según filtros activos
+      </div>
+      <div class="g">
+        <div class="panel c6 res-panel">
+          <div class="ph"><div class="pt">📁 Info General</div></div>
+          <div id="res-info-general"><div class="empty" style="padding:.6rem;font-size:.74rem">Sin datos (carga Excel con Hoja5)</div></div>
+        </div>
+        <div class="panel c6 res-panel">
+          <div class="ph"><div class="pt">🌾 Cosecha · agoste y fechas</div></div>
+          <div id="res-cosecha"><div class="empty" style="padding:.6rem;font-size:.74rem">Sin datos (carga Excel con Hoja5)</div></div>
+        </div>
+      </div>
+      <div class="g">
+        <div class="panel c4 res-panel">
+          <div class="ph"><div class="pt">📋 Programa</div></div>
+          <div id="res-programa"><div class="empty" style="padding:.6rem;font-size:.74rem">Sin datos (carga Excel con Hoja3)</div></div>
+        </div>
+        <div class="panel c4 res-panel">
+          <div class="ph"><div class="pt">💧 Humedad suelo</div></div>
+          <div id="res-humedad"><div class="empty" style="padding:.6rem;font-size:.74rem">Sin datos (carga Excel con Hoja6)</div></div>
+        </div>
+        <div class="panel c4 res-panel">
+          <div class="ph"><div class="pt">📊 Caudales · prom. 3 días</div></div>
+          <div id="res-caudales-kpi"><div class="empty" style="padding:.6rem;font-size:.74rem">Sin datos (carga Excel con Hoja4)</div></div>
+        </div>
+      </div>
+      <div class="panel c12" style="margin-bottom:.4rem">
+        <div class="ph"><div class="pt">📊 Caudales · evolución reciente <span style="font-size:.62rem;color:var(--text4)">top 5 EQ-TR</span></div></div>
+        <div class="chart-wrap"><canvas id="ch-res-caudales" height="180"></canvas></div>
+      </div>
     </div>
 
     <!-- ACUMULADO -->
@@ -833,7 +868,7 @@ canvas{display:block;background:var(--surface);border-radius:4px}
         <div class="panel c6">
           <div class="ph"><div class="pt">Impacto de fallas</div></div>
           <div class="tw">
-            <table class="tbl"><thead><tr><th>Código</th><th class="r">Registros</th><th class="r">%</th><th class="r">Vol. Perdido est.</th></tr></thead>
+            <table class="tbl"><thead><tr><th>Descripción</th><th>Código</th><th class="r">Registros</th><th class="r">%</th><th class="r">Vol. Perdido est.</th></tr></thead>
             <tbody id="tbody-falla-det"></tbody>
           </table></div>
         </div>
@@ -1144,6 +1179,8 @@ let PROGRAMA = [];  // hoja3: programa de riego
 let CAUDALES = [];  // hoja4: desviación de caudales
 let INFOGENS = [];  // hoja5: información general (columnas amarillas)
 let HUMEDAD  = [];  // hoja6: % humedad del suelo
+const FALLA_DESC = {"F010": "Abastecimiento de Agua", "F0101": "Bajo nivel de agua en canal o río", "F0103": "Bajo Nivel en Canal", "F0104": "Bajo Nivel Río Chira", "F070": "Abastecimiento de Insumos", "F0701": "Urea, ácido nítrico, comp. nitrogenados", "F0702": "Ácido fosfórico, comp. fosfatados", "F0703": "Sulfato de potasio, comp. potásicos", "F0704": "Otros compuestos fertilizantes", "F060": "Abastecimiento Eléctrico", "F0601": "Caída de tensión de red", "F0602": "Corte de fluido eléctrico", "F0603": "Sobrecarga eléctrica", "F0604": "Fusibles", "F0605": "Instalación eléctrica", "F0606": "Batería", "F0607": "Cables", "F0608": "Desbalance de energía", "F0609": "Mantenimiento de sub estación", "F0610": "Restricción de carga", "F0611": "Mantenimiento de UPS", "F040": "Automatización", "F0401": "Agronic / Dream/PLC", "F0402": "Sistema remoto", "F0403": "Programador de riego", "F0404": "Líneas de suministro eléctrico", "F0405": "Tableros eléctricos", "F0406": "Sensores", "F0407": "RTU / MAR", "F0408": "Solenoides", "F0409": "EAR / EAM / MAM", "F0410": "Monocable", "F0411": "Falla en Comunicación del Controlador", "F0412": "Activación de Válvulas", "F100": "Calidad de Agua", "F1001": "NTU Altos", "F1002": "FITOPLANCTON: Algas", "F1003": "ZOOPLANCTON: Ostrácodos y Copépodos", "F1004": "Dosis Shock en Reservorio", "F1005": "Sedimentos en reservorio", "F020": "Capacidad de Riego", "F0201": "Diseño del sistema", "F0202": "Exceso de Humedad", "F0203": "Por ajuste de caudales (adelanto o retraso) dentro del día", "F0204": "Limitada capacidad de reservorio", "F090": "Eventos externos", "F0901": "Inundaciones", "F0902": "Incendios", "F0903": "Problema social", "F0904": "Lluvia", "F0905": "Robo de Equipos de Riego", "F0906": "Alto en NTU", "F030": "Hidráulica", "F0301": "Tubería matriz", "F0302": "Electrobomba", "F0303": "Filtros", "F0304": "Cabezal del filtrado", "F0305": "Mantenimiento de Reservorio", "F0306": "Arco de riego", "F0307": "Mangueras", "F0308": "Válvula de purga de aire", "F0309": "Sostenedora", "F0310": "Membrana de válvulas", "F0311": "Coletas de sub-matriz", "F0312": "Inyección de Fertilizantes", "F0313": "Válvulas", "F0314": "Aductoras", "F0315": "Captación", "F0316": "Manifold", "F0317": "Tanque", "F0318": "Tanque de arena", "F0319": "Mezclador", "F0320": "Fertímetro", "F0321": "Tubería Submatriz", "F0322": "Hidrómetro", "F0323": "Coleta de Matriz", "F0324": "Válvula de alivio", "F0325": "Activación de Válvulas", "F0326": "Mtto de tomas flotantes", "F501": "Conexión válvula de aire - aductora", "F050": "Mantenimiento Preventivo/Programado", "F0501": "Filtros", "F0502": "Cabezal del filtrado", "F0503": "Limpieza de Reservorio", "F0504": "Válvulas de arco de riego", "F0505": "Bombas horizontales", "F0506": "Membrana de sostenedora", "F0507": "Membrana de válvulas", "F0508": "Bombas verticales", "F0509": "Controladores de filtros", "F0510": "Matrices", "F0511": "Aductoras", "F0512": "Sub Estaciones Eléctricas", "F0513": "Hidrómetros", "F0514": "Sostenedoras", "F0515": "Cambio de anillas", "F0516": "Trabajos en filtrado", "F0517": "Instalaciones arco de riego", "F0518": "Revisión de succión de bombas", "F0519": "Baja presión", "F0520": "Regulación de presiones", "F0521": "Cambio de empaque", "F0522": "Cabezal de filtrado - ANILLAS", "F0523": "Cabezal de filtrado - GRAVA", "F0524": "Cabezal de filtrado - MALLA", "F0525": "Limpieza de desarenador", "F080": "Operación", "F0000": "Dentro del rango (Múltiplo 10 M3)", "F0801": "Incumplimiento de programa", "F0802": "Personal no atento a la operación", "F0803": "Daños causados por equipos de cosecha", "F0804": "Daños causados por equipos de transporte", "F0805": "Daños causados por problemas en fábrica", "F0807": "Daños causados por Maquinaria Agrícola", "F0808": "Campo en Agoste", "F0809": "Evaluación de coeficiente", "F0810": "Limpieza de laterales (purga)", "F0811": "Machaco", "F0812": "Parada de riego", "F0813": "Riego un pulso", "F0814": "Regulación de presiones", "F0815": "Resiembra", "F0816": "Revisión de manguera", "F0817": "Riego adicional", "F0818": "Riego continúa al sgte. día", "F0819": "Válvulas activadas", "F0820": "Válvulas desactivadas", "F0821": "Siembra", "F0822": "Cumplimiento de Riego", "F0823": "Evaluaciones post aplicaciones", "F0824": "Recuperación de lámina", "F0825": "Riego del día anterior", "F0826": "Entable", "F0827": "Por compensación - Caudales altos-bajos", "F0829": "Aplicación con Dron / Avioneta", "F0830": "Tendido de manguera", "F0831": "Instalación válvulas de corte - pig", "F0832": "Investigación - Ensayos", "F0833": "Actualización del programa de riego", "F0834": "Inyección de correctores para limpieza de Manguera", "F0835": "Inyección de agroquímicos", "F0836": "Inyección de enmiendas", "F0837": "Lavado de Flushing", "F0838": "Movimiento de manguera", "F0839": "Plan cero fugas", "F0840": "Aplicación fitosanitaria", "F0841": "Ajuste de riego por humedad", "F0842": "Por riego del turno virtual", "F0843": "Riego de turno incompleto por parcela quemada", "F0844": "Compensación de áreas", "F0845": "Adicional por trabajos de maquinaria", "F0846": "Levantamiento de manguera", "F0847": "Labores Mecanizadas Agrícolas", "F0848": "Labores mecanizadas CAT", "F0849": "Agoste Anticipado", "F0850": "Elaboración del Programación de Riego", "F0851": "Dragado", "F0852": "Machaco por lavado de sales"};
+function fallaDesc(code) { return code ? (FALLA_DESC[String(code).trim()] || String(code).trim()) : '—'; }
 let LEVEL = 'EQ';
 let ACUM_MODE = 'semana';
 let SEM_MODE = 'line';
@@ -1928,6 +1965,9 @@ function renderResumen(data) {
     }))},
     options:{...getCD(),scales:{x:{ticks:{color:tk(),font:{size:9}},grid:{color:gc()},border:{color:gc()}},y:{ticks:{color:tk(),font:{size:9},callback:v=>v+'%'},grid:{color:gc()},border:{color:gc()}}}}
   });
+
+  // ── Render summary panels from other sections ──
+  renderResumenSummaries(data);
 }
 
 window.msQuickFilter=function(val){
@@ -2138,8 +2178,11 @@ function renderFallas(data) {
 
   document.getElementById('falla-list').innerHTML=arr.map(([c,n])=>`
     <div class="falla-row">
-      <div class="falla-code">${c}</div>
-      <div class="falla-bg"><div class="falla-fill" style="width:${n/maxF*100}%"></div></div>
+      <div style="display:flex;flex-direction:column;gap:.1rem;min-width:0;flex:1.8">
+        <div style="font-size:.71rem;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${fallaDesc(c)}">${fallaDesc(c)}</div>
+        <div style="font-family:var(--mono);font-size:.62rem;color:var(--text4)">${c}</div>
+      </div>
+      <div class="falla-bg" style="flex:2"><div class="falla-fill" style="width:${n/maxF*100}%"></div></div>
       <div class="falla-cnt">${n.toLocaleString()}</div>
       <div class="falla-pct">${(n/total*100).toFixed(1)}%</div>
     </div>`).join('');
@@ -2148,7 +2191,7 @@ function renderFallas(data) {
   const sems=[...new Set(data.map(r=>r.semana))].sort((a,b)=>a-b);
   charts['fallas']=new Chart(document.getElementById('ch-fallas').getContext('2d'),{
     type:'bar',data:{labels:sems.map(s=>'S'+s),datasets:arr.slice(0,5).map(([c],i)=>({
-      label:c, backgroundColor:getP(i+2), borderColor:getP(i+2), borderWidth:0, borderRadius:2,
+      label:fallaDesc(c).slice(0,28)+(fallaDesc(c).length>28?'…':''), backgroundColor:getP(i+2), borderColor:getP(i+2), borderWidth:0, borderRadius:2,
       data:sems.map(s=>data.filter(r=>r.semana===s&&r.falla===c).length)
     }))},
     options:{...getCD(),plugins:{legend:{display:true,labels:{color:tk(),font:{size:9,weight:"500"},boxWidth:8}}},
@@ -2168,7 +2211,8 @@ function renderFallas(data) {
   const vp=new Map();
   data.filter(r=>r.falla).forEach(r=>vp.set(r.falla,(vp.get(r.falla)||0)+(r.prog-r.real)));
   document.getElementById('tbody-falla-det').innerHTML=arr.map(([c,n])=>`
-    <tr><td class="m" style="color:var(--amber)">${c}</td>
+    <tr><td class="m" style="color:var(--amber)" title="${c}">${fallaDesc(c)}</td>
+    <td class="r" style="font-family:var(--mono);font-size:.67rem;color:var(--text4)">${c}</td>
     <td class="r">${n.toLocaleString()}</td>
     <td class="r">${(n/total*100).toFixed(1)}%</td>
     <td class="r" style="color:var(--red)">${fmt(Math.round(Math.max(0,vp.get(c)||0)))} m³</td></tr>`).join('');
@@ -3421,30 +3465,58 @@ function parseInfoGen(rows) {
   const today = new Date();
   today.setHours(0,0,0,0);
   return rows.map(r => {
-    const fCultivoRaw = r['FCultivo'];
-    const fCultivoDate = parseXLDate(fCultivoRaw);
+    // Hoja5 structure:
+    //   r['EQ']   = EQ-TR full code (e.g. EQ09TR01)
+    //   r['EQ.1'] = EQ only (e.g. EQ09)
+    //   r['TR']   = TR only (e.g. TR01)
+    //   r['FD']   = FD code
+    //   r['MF']   = MF code
+    const eqtr = String(r['EQ']   || '').trim();
+    const eq   = String(r['EQ.1'] || r['EQ'] || '').trim().replace(/TR\d+$/,'');
+    const tr   = String(r['TR']   || '').trim();
+    const fd   = String(r['FD']   || '').trim();
+    const mf   = String(r['MF']   || '').trim();
+
+    // Parse FCultivo
+    const fCultivoDate = parseXLDate(r['FCultivo']);
     const fCultivoStr  = fCultivoDate && !isNaN(fCultivoDate)
       ? fCultivoDate.toISOString().slice(0,10) : null;
-    // Edad en días = hoy - FCultivo
     let edad = null;
     if (fCultivoDate && !isNaN(fCultivoDate)) {
       edad = Math.round((today - fCultivoDate) / (1000*60*60*24));
     }
+
+    // Parse FAgoste and FCosecha (present in Hoja5!)
+    const fAgosteDate  = parseXLDate(r['FAgoste']);
+    const fAgosteStr   = fAgosteDate && !isNaN(fAgosteDate)
+      ? fAgosteDate.toISOString().slice(0,10) : null;
+    let diasAgoste = null;
+    if (fAgosteDate && !isNaN(fAgosteDate)) {
+      fAgosteDate.setHours(0,0,0,0);
+      diasAgoste = Math.ceil((fAgosteDate - today) / (1000*60*60*24));
+    }
+
+    const fCosechaDate = parseXLDate(r['FCosecha']);
+    const fCosechaStr  = fCosechaDate && !isNaN(fCosechaDate)
+      ? fCosechaDate.toISOString().slice(0,10) : null;
+
     return {
-      eqtr:      (r['EQ']||'') + (r['TR']||''),
-      eq:        String(r['EQ']||'').trim(),
-      tr:        String(r['TR']||'').trim(),
-      fd:        String(r['FD']||'').trim(),
+      eqtr, eq, tr, fd, mf,
       fCultivo:  fCultivoStr,
-      edad,                   // días desde FCultivo hasta hoy
-      thm:       parseFloat(r['THM']) || null,
-      area:      parseFloat(r['Area']) || null,
-      variedad:  String(r['Var']||'').trim(),
-      estrato:   String(r['Est']||'').trim(),
+      edad,
+      fAgoste:   fAgosteStr,
+      diasAgoste,
+      fCosecha:  fCosechaStr,
+      thm:       parseFloat(r['THM'])    || null,
+      tHa:       parseFloat(r['T/ha'])   || null,
+      area:      parseFloat(r['Area'])   || null,
+      variedad:  String(r['Var']  || '').trim(),
+      estrato:   String(r['Est']  || '').trim(),
       caudal:    parseFloat(r['Caudal']) || null,
-      surco:     String(r['Surco']||'').trim(),
+      surco:     String(r['Surco']|| '').trim(),
+      ciclo:     r['Ciclo'] != null ? String(r['Ciclo']) : null,
     };
-  }).filter(r => r.eq && r.tr);
+  }).filter(r => r.eqtr && r.eqtr !== 'EQ');
 }
 
 function renderInfoGeneral() {
@@ -3479,7 +3551,7 @@ function renderInfoGeneral() {
   // Table
   document.getElementById('tbody-info-general').innerHTML = filtered.map(r => `
     <tr>
-      <td style="font-family:var(--mono);font-size:.71rem;color:var(--blue)">${r.eqtr||r.eq+r.tr}</td>
+      <td style="font-family:var(--mono);font-size:.71rem;color:var(--blue)">${r.eqtr}</td>
       <td class="m">${r.eq}</td>
       <td class="m">${r.tr}</td>
       <td class="m">${r.fCultivo||'—'}</td>
@@ -3797,6 +3869,294 @@ function renderHumedad() {
       <td class="r">${r.ceAvg!=null?r.ceAvg:'—'}</td>
       <td style="font-size:.72rem">${humLabel(r.humAvg)}</td>
     </tr>`).join('') || '<tr><td colspan="11" class="empty">Sin datos</td></tr>';
+}
+
+
+// ═══════════════════════════════════════════════
+//  RESUMEN — Summary panels from other sections
+// ═══════════════════════════════════════════════
+function renderResumenSummaries(riegoData) {
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // ── INFO GENERAL ──
+  const igEl = document.getElementById('res-info-general');
+  if (igEl) {
+    if (!INFOGENS.length) {
+      igEl.innerHTML = '<span style="color:var(--text4)">Sin datos de Hoja5</span>';
+    } else {
+      // Apply same filters as main filters
+      const selFD   = getSelMS('ms-fd');
+      const selEQ   = getSelMS('ms-eq');
+      const selEQTR = getSelMS('ms-eqtr');
+      const ig = INFOGENS.filter(r => {
+        if (selFD.length   && !selFD.includes(r.fd))     return false;
+        if (selEQ.length   && !selEQ.includes(r.eq))     return false;
+        if (selEQTR.length && !selEQTR.includes(r.eqtr)) return false;
+        return true;
+      });
+      const varSet   = [...new Set(ig.map(r=>r.variedad).filter(Boolean))];
+      const estSet   = [...new Set(ig.map(r=>r.estrato).filter(Boolean))];
+      const avgEdad  = ig.filter(r=>r.edad!=null).reduce((s,r)=>s+r.edad,0) / (ig.filter(r=>r.edad!=null).length||1);
+      const fCulMin  = ig.map(r=>r.fCultivo).filter(Boolean).sort()[0];
+      const fCulMax  = ig.map(r=>r.fCultivo).filter(Boolean).sort().pop();
+      igEl.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .7rem;font-size:.75rem">
+          <div><span style="color:var(--text3)">EQ-TR:</span> <b>${ig.length}</b></div>
+          <div><span style="color:var(--text3)">Edad prom:</span> <b style="color:var(--blue)">${isNaN(avgEdad)?'—':Math.round(avgEdad)+' d'}</b></div>
+          <div><span style="color:var(--text3)">F.Cultivo:</span> <b>${fCulMin||'—'}</b></div>
+          <div><span style="color:var(--text3)">hasta:</span> <b>${fCulMax||'—'}</b></div>
+          <div><span style="color:var(--text3)">Variedades:</span> <b style="color:var(--violet)">${varSet.join(', ')||'—'}</b></div>
+          <div><span style="color:var(--text3)">Estratos:</span> <b>${estSet.join(', ')||'—'}</b></div>
+        </div>`;
+    }
+  }
+
+  // ── COSECHA ──
+  const cosEl = document.getElementById('res-cosecha');
+  if (cosEl) {
+    // Use INFOGENS (Hoja5) which has FAgoste and FCosecha
+    if (!INFOGENS.length) {
+      cosEl.innerHTML = '<span style="color:var(--text4)">Sin datos de cosecha</span>';
+    } else {
+      const selFD   = getSelMS('ms-fd');
+      const selEQ   = getSelMS('ms-eq');
+      const selEQTR = getSelMS('ms-eqtr');
+      const ig = INFOGENS.filter(r => {
+        if (selFD.length   && !selFD.includes(r.fd))     return false;
+        if (selEQ.length   && !selEQ.includes(r.eq))     return false;
+        if (selEQTR.length && !selEQTR.includes(r.eqtr)) return false;
+        return true;
+      });
+      const withAgoste  = ig.filter(r=>r.diasAgoste!=null).sort((a,b)=>a.diasAgoste-b.diasAgoste);
+      const withCosecha = ig.filter(r=>r.fCosecha).sort((a,b)=>a.fCosecha.localeCompare(b.fCosecha));
+      const nextAgoste  = withAgoste[0];
+      const nextCosecha = withCosecha[0];
+      const agoPend     = withAgoste.filter(r=>r.diasAgoste>0).length;
+      const agoVenc     = withAgoste.filter(r=>r.diasAgoste<=0).length;
+
+      cosEl.innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .7rem;font-size:.75rem">
+          <div><span style="color:var(--text3)">Próx. cosecha:</span> <b style="color:var(--green)">${nextCosecha?nextCosecha.fCosecha:'—'}</b></div>
+          <div><span style="color:var(--text3)">EQ-TR:</span> <b>${nextCosecha?nextCosecha.eqtr:'—'}</b></div>
+          <div><span style="color:var(--text3)">Próx. agoste:</span> <b style="color:var(--amber)">${nextAgoste?nextAgoste.fAgoste:'—'}</b></div>
+          <div><span style="color:var(--text3)">Días rest.:</span> <b style="color:${nextAgoste&&nextAgoste.diasAgoste>0?'var(--amber)':'var(--red)'}">${nextAgoste?(nextAgoste.diasAgoste>0?'Faltan '+nextAgoste.diasAgoste+' d':'Agostado'):'—'}</b></div>
+          <div><span style="color:var(--text3)">Pendientes:</span> <b style="color:var(--amber)">${agoPend}</b></div>
+          <div><span style="color:var(--text3)">Agostados:</span> <b style="color:var(--red)">${agoVenc}</b></div>
+        </div>`;
+    }
+  }
+
+  // ── PROGRAMA ──
+  const progEl = document.getElementById('res-programa');
+  if (progEl) {
+    if (!PROGRAMA.length) {
+      progEl.innerHTML = '<span style="color:var(--text4)">Sin datos de Hoja3</span>';
+    } else {
+      const selFD   = getSelMS('ms-fd');
+      const selEQ   = getSelMS('ms-eq');
+      const selEQTR = getSelMS('ms-eqtr');
+      const prog = PROGRAMA.filter(r => {
+        if (selFD.length   && !selFD.includes(r.fd))     return false;
+        if (selEQ.length   && !selEQ.includes(r.eq))     return false;
+        if (selEQTR.length && !selEQTR.includes(r.eqtr)) return false;
+        return true;
+      });
+      const avgKc  = prog.filter(r=>r.kc!=null).reduce((s,r)=>s+r.kc,0) / (prog.filter(r=>r.kc!=null).length||1);
+      const avgEto = prog.filter(r=>r.eto!=null).reduce((s,r)=>s+r.eto,0) / (prog.filter(r=>r.eto!=null).length||1);
+      const avgT   = prog.filter(r=>r.tRiego!=null).reduce((s,r)=>s+r.tRiego,0) / (prog.filter(r=>r.tRiego!=null).length||1);
+      progEl.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:.35rem;font-size:.75rem">
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">Kc promedio</span>
+            <b style="color:var(--blue)">${isNaN(avgKc)?'—':avgKc.toFixed(2)}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">ETo promedio</span>
+            <b style="color:var(--green)">${isNaN(avgEto)?'—':avgEto.toFixed(1)+' mm/d'}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">T. riego promedio</span>
+            <b style="color:var(--amber)">${isNaN(avgT)?'—':avgT.toFixed(1)+' h'}</b>
+          </div>
+        </div>`;
+    }
+  }
+
+  // ── HUMEDAD ──
+  const humEl = document.getElementById('res-humedad');
+  if (humEl) {
+    if (!HUMEDAD.length) {
+      humEl.innerHTML = '<span style="color:var(--text4)">Sin datos de Hoja6</span>';
+    } else {
+      const selFD   = getSelMS('ms-fd');
+      const selEQ   = getSelMS('ms-eq');
+      const selEQTR = getSelMS('ms-eqtr');
+      const hum = HUMEDAD.filter(r => {
+        if (selFD.length   && !selFD.includes(r.fd))     return false;
+        if (selEQ.length   && !selEQ.includes(r.eq))     return false;
+        if (selEQTR.length && !selEQTR.includes(r.eqtr)) return false;
+        return true;
+      });
+      const allH   = hum.map(r=>r.hum).filter(v=>v!=null);
+      const avgHum = allH.length ? (allH.reduce((a,b)=>a+b,0)/allH.length).toFixed(1) : null;
+      const minHum = allH.length ? Math.min(...allH).toFixed(1) : null;
+      const maxHum = allH.length ? Math.max(...allH).toFixed(1) : null;
+      const nOpt   = hum.filter(r=>r.hum>=20&&r.hum<=28).length;
+      const nBaja  = hum.filter(r=>r.hum<20).length;
+      const humCol = v => v==null?'var(--text3)':v>=20&&v<=28?'var(--green)':v<20?'var(--amber)':'var(--blue)';
+      humEl.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:.35rem;font-size:.75rem">
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">Humedad promedio</span>
+            <b style="color:${humCol(avgHum)}">${avgHum!=null?avgHum+'%':'—'}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">Rango</span>
+            <b>${minHum!=null?minHum+'% – '+maxHum+'%':'—'}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">Óptima (20–28%)</span>
+            <b style="color:var(--green)">${nOpt} puntos</b>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">Baja (&lt;20%)</span>
+            <b style="color:var(--amber)">${nBaja} puntos</b>
+          </div>
+        </div>`;
+    }
+  }
+
+  // ── CAUDALES KPI ──
+  const cauKpiEl = document.getElementById('res-caudales-kpi');
+  if (cauKpiEl) {
+    if (!CAUDALES.length) {
+      cauKpiEl.innerHTML = '<span style="color:var(--text4)">Sin datos de Hoja4</span>';
+    } else {
+      const selFD   = getSelMS('ms-fd');
+      const selEQ   = getSelMS('ms-eq');
+      const selEQTR = getSelMS('ms-eqtr');
+      const caud = CAUDALES.filter(r => {
+        if (selFD.length   && !selFD.includes(r.fd))     return false;
+        if (selEQ.length   && !selEQ.includes(r.eq))     return false;
+        if (selEQTR.length && !selEQTR.includes(r.eqtr)) return false;
+        return true;
+      });
+      const withAvg   = caud.filter(r=>r.avg3!=null);
+      const globalAvg = withAvg.length ? (withAvg.reduce((s,r)=>s+r.avg3,0)/withAvg.length).toFixed(1) : null;
+      const nCrit     = withAvg.filter(r=>r.avg3< -20).length;
+      const nDef      = withAvg.filter(r=>r.avg3>=-20&&r.avg3<-10).length;
+      const nNorm     = withAvg.filter(r=>r.avg3>=-10&&r.avg3<=10).length;
+      const nExc      = withAvg.filter(r=>r.avg3>10).length;
+      const cCol = v => v==null?'var(--text3)':v>10?'var(--blue)':v>=-10?'var(--green)':v>=-20?'var(--amber)':'var(--red)';
+      cauKpiEl.innerHTML = `
+        <div style="display:flex;flex-direction:column;gap:.35rem;font-size:.75rem">
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">Prom. 3 días</span>
+            <b style="color:${cCol(globalAvg)}">${globalAvg!=null?globalAvg+'%':'—'}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">🔴 Déficit crítico</span><b style="color:var(--red)">${nCrit}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">🟡 Déficit regular</span><b style="color:var(--amber)">${nDef}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">🟢 Normal</span><b style="color:var(--green)">${nNorm}</b>
+          </div>
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">🔵 Exceso</span><b style="color:var(--blue)">${nExc}</b>
+          </div>
+        </div>`;
+    }
+  }
+
+  // ── CAUDALES EVOLUTION — mismo gráfico que "Evolución temporal" en sección Caudales ──
+  dc('ch-res-caudales');
+  const cauEl = document.getElementById('ch-res-caudales');
+  if (cauEl) {
+    if (!CAUDALES.length) {
+      cauEl.parentElement.style.display = 'none';
+    } else {
+      cauEl.parentElement.style.display = '';
+
+      // Aplicar los mismos filtros que renderCaudales()
+      const _selFD   = getSelMS('ms-fd');
+      const _selEQ   = getSelMS('ms-eq');
+      const _selEQTR = getSelMS('ms-eqtr');
+      const _filtered = CAUDALES.filter(r => {
+        if (_selFD.length   && !_selFD.includes(r.fd))     return false;
+        if (_selEQ.length   && !_selEQ.includes(r.eq))     return false;
+        if (_selEQTR.length && !_selEQTR.includes(r.eqtr)) return false;
+        return true;
+      });
+
+      if (!_filtered.length) {
+        cauEl.parentElement.style.display = 'none';
+      } else {
+        // Mismo procesamiento que renderCaudales → stats
+        const _stats = _filtered.map(r => {
+          const vals = r.desvs.map(d=>d.val).filter(v=>v!=null);
+          return { ...r, avg: r.avg3??null, mn: vals.length?Math.min(...vals):null,
+                   mx: vals.length?Math.max(...vals):null, n: vals.length };
+        });
+
+        // Misma lógica de fechas y top6
+        const _dateMap = new Map();
+        _filtered.forEach(r => r.desvs.forEach(d => {
+          if (!_dateMap.has(d.label)) _dateMap.set(d.label, true);
+        }));
+        const _allDates = [..._dateMap.keys()];
+        const _top6 = [..._stats].filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,6);
+
+        const _LCOLS = DARK_MODE
+          ? ['#38bdf8','#4ade80','#fbbf24','#c084fc','#f87171','#fb923c']
+          : ['#0369a1','#15803d','#b45309','#7e22ce','#b91c1c','#c2410c'];
+
+        // Mismo cálculo de rango Y
+        const _yVals = _top6.flatMap(r=>r.desvs.map(d=>d.val)).filter(v=>v!=null);
+        const _yMin  = _yVals.length ? Math.floor((Math.min(..._yVals)-5)/5)*5 : -55;
+        const _yMax  = _yVals.length ? Math.ceil( (Math.max(..._yVals)+5)/5)*5 : 20;
+
+        // cldLabel & cldColor reuse (same ones defined in renderCaudales scope are gone,
+        // so redefine them here)
+        const _cldLabel = v => {
+          if (v==null) return '—';
+          if (v>10) return '🔵 Exceso';
+          if (v>=-10) return '🟢 Normal';
+          if (v>=-20) return '🟡 Déficit regular';
+          return '🔴 Déficit crítico';
+        };
+
+        charts['ch-res-caudales'] = new Chart(cauEl.getContext('2d'), {
+          type:'line',
+          data:{
+            labels: _allDates,
+            datasets: _top6.map((r,i) => ({
+              label: r.eqtr,
+              data:  _allDates.map(lbl => { const d=r.desvs.find(x=>x.label===lbl); return d?d.val:null; }),
+              borderColor: _LCOLS[i%_LCOLS.length],
+              backgroundColor: 'transparent',
+              pointRadius:2.5, pointHoverRadius:5, tension:.3,
+              spanGaps:true, borderWidth:2, order:1
+            }))
+          },
+          options:{ responsive:true, maintainAspectRatio:false,
+            plugins:{
+              legend:{ labels:{ color:tk(), font:{size:10,weight:'500'}, boxWidth:9, padding:6 }},
+              tooltip:{ callbacks:{ label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y?.toFixed(1)}%  ${_cldLabel(ctx.parsed.y)}` }}
+            },
+            scales:{
+              x:{ ticks:{color:tk(),font:{size:9},maxRotation:55}, grid:{color:gc()} },
+              y:{ min:_yMin, max:_yMax,
+                  grid:{color:gc()},
+                  title:{display:true,text:'Desviación %',color:tk(),font:{size:9,weight:'700'}},
+                  ticks:{ color:tk(), font:{size:9}, callback:v=>v+'%', stepSize:5 } }
+            }
+          }
+        });
+      }
+    }
+  }
 }
 
 </script>
