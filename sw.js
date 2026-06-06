@@ -1,6 +1,6 @@
 // ── Riego Dashboard Service Worker ──
 // Cambia VERSION con cada deploy para forzar actualización en todos los dispositivos
-const VERSION = 'v27';
+const VERSION = 'v32';
 const CACHE   = 'riego-' + VERSION;
 
 const ASSETS = [
@@ -9,7 +9,8 @@ const ASSETS = [
   './manifest.json',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap'
+  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap',
+
 ];
 
 // ── INSTALL: cachear assets y activar inmediatamente ──
