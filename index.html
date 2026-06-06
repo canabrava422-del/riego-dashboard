@@ -1432,10 +1432,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
           </div>
         </div>
         <!-- Map container (collapsible) -->
-        <div id="mapa-resumen-wrap" style="display:none">
+        <div id="mapa-resumen-wrap" style="height:0;overflow:hidden;transition:height .3s">
           <div id="mapa-resumen-leaflet" style="height:420px;width:100%;
-            border-radius:8px;overflow:hidden;background:var(--surface2)"></div>
-          <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;font-size:.71rem;color:var(--text3)">
+            border-radius:8px;overflow:hidden;background:#1a2236"></div>
+          <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;font-size:.71rem;color:var(--text3);padding-bottom:.5rem">
             <div style="display:flex;align-items:center;gap:.3rem"><div style="width:12px;height:3px;background:#4ade80;border-radius:2px"></div>Mi posición</div>
             <div style="display:flex;align-items:center;gap:.3rem"><div style="width:12px;height:3px;background:#3b82f6;border-radius:2px"></div>Con datos</div>
             <div style="display:flex;align-items:center;gap:.3rem"><div style="width:12px;height:3px;background:#475569;border-radius:2px"></div>Sin datos</div>
@@ -5839,18 +5839,15 @@ function initMapaResumen() {
   });
   _mapR.fire('zoomend');
 
-  // Robust resize: wait for browser paint then resize
-  requestAnimationFrame(() => {
-    _mapR.invalidateSize();
-    // Center map on all turno features
-    try {
-      const allTurnos = Object.values(GEO_MAP).filter(f=>f.typ==='turno');
-      if (allTurnos.length) {
-        const latLngs = allTurnos.map(f => [f.lat, f.lon]);
-        _mapR.fitBounds(L.latLngBounds(latLngs), { padding:[20,20], maxZoom:15 });
-      }
-    } catch(e) {}
-  });
+  // Center on all turnos
+  try {
+    const allTurnos = Object.values(GEO_MAP).filter(f=>f.typ==='turno');
+    if (allTurnos.length) {
+      const lls = allTurnos.map(f=>[f.lat, f.lon]);
+      _mapR.fitBounds(L.latLngBounds(lls), { padding:[10,10], maxZoom:15 });
+    }
+  } catch(e) {}
+  _mapR.invalidateSize();
 }
 
 function centerGPSResumen() {
@@ -6039,22 +6036,23 @@ function toggleMapaResumen() {
   _mapaResumenActive = !_mapaResumenActive;
 
   if (_mapaResumenActive) {
-    // Show containers FIRST so Leaflet can measure them
-    wrap.style.display     = '';
+    // Show GPS strip immediately
     gpsStrip.style.display = '';
     btn.textContent = '✕ Desactivar mapa';
     btn.classList.add('active');
-    // Init map after browser has painted the container
-    // Use multiple timeouts to handle slow renders on mobile
-    setTimeout(() => {
-      initMapaResumen();
-      // Force resize after a short delay (mobile needs more time)
-      setTimeout(() => { if (_mapR) _mapR.invalidateSize(); }, 300);
-      setTimeout(() => { if (_mapR) _mapR.invalidateSize(); }, 800);
-    }, 150);
+    // Init map first (container is always in DOM via height:0)
+    initMapaResumen();
+    // Then expand the container — Leaflet already has correct dimensions
+    requestAnimationFrame(() => {
+      wrap.style.height = '480px';
+      // Extra invalidateSize calls for mobile
+      setTimeout(() => { if (_mapR) { _mapR.invalidateSize(); } }, 100);
+      setTimeout(() => { if (_mapR) { _mapR.invalidateSize(); } }, 400);
+      setTimeout(() => { if (_mapR) { _mapR.invalidateSize(); } }, 900);
+    });
     startGPS();
   } else {
-    wrap.style.display   = 'none';
+    wrap.style.height = '0';
     gpsStrip.style.display = 'none';
     btn.textContent = 'Activar mapa';
     btn.classList.remove('active');
