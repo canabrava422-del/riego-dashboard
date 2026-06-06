@@ -1155,7 +1155,7 @@ canvas{display:block;background:var(--surface);border-radius:4px}
       <!-- Evolución semanal -->
       <div class="panel c12" style="margin-bottom:.7rem">
         <div class="ph">
-          <div class="pt">Evolución semanal · Programado vs Ejecutado <span class="pt-badge" id="fert-evol-lbl">N · todos los EQ-TR</span></div>
+          <div class="pt">Evolución semanal · Programado vs Ejecutado (unidades/ha) <span class="pt-badge" id="fert-evol-lbl">N · todos los EQ-TR</span></div>
           <select id="fert-eqtr-sel" onchange="renderFertil()"
             style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);
                    padding:.3rem .6rem;border-radius:6px;font-size:.76rem;font-family:var(--sans)">
@@ -1174,7 +1174,7 @@ canvas{display:block;background:var(--surface);border-radius:4px}
               <th>EQ-TR</th><th>EQ</th><th>TR</th><th>NPK</th>
               <th class="r">Total prog. (kg)</th><th class="r">Total ejec. (kg)</th>
               <th class="r">Acum. prog/ejec.</th>
-              <th class="r">% Cumpl.</th><th>Estado</th>
+              <th class="r">% Avance</th><th class="r">Und. Pendiente</th><th>Estado</th>
               <th class="r">Últ. aplicación</th>
             </tr></thead>
             <tbody id="tbody-fertil"></tbody>
@@ -2910,7 +2910,7 @@ function renderCaudales() {
       <td class="r" style="color:#fca5a5">${r.mn!=null?r.mn.toFixed(1)+'%':'—'}</td>
       <td class="r" style="color:#86efac">${r.mx!=null?r.mx.toFixed(1)+'%':'—'}</td>
       <td style="font-size:.72rem">${cldLabel(r.avg)}</td>
-    </tr>`).join('') || '<tr><td colspan="10" class="empty">Sin datos</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="11" class="empty">Sin datos</td></tr>';
 
   // ── Raw table — datos tal cual del Excel (con filtros) ──
   const rawWrap = document.getElementById('caud-raw-wrap');
@@ -4223,23 +4223,45 @@ function renderResumenSummaries(riegoData) {
       const bk = new Map();
       filt.forEach(r=>{
         const k=r.eqtr+'|'+r.npk;
-        if(!bk.has(k)) bk.set(k,{prog:null,real:null});
+        if(!bk.has(k)) bk.set(k,{prog:null,real:null,npk:r.npk});
         if(r.clase==='prog') bk.get(k).prog=r.undTotal;
         if(r.clase==='real') bk.get(k).real=r.undTotal;
       });
-      const ss=[...bk.values()].map(g=>({cumpl:g.prog>0?Math.round(g.real/g.prog*1000)/10:null}));
-      const wc=ss.filter(s=>s.cumpl!=null);
-      const avg=wc.length?(wc.reduce((a,s)=>a+s.cumpl,0)/wc.length).toFixed(1):null;
+      const ss=[...bk.values()].map(g=>({
+        npk:g.npk, prog:g.prog, real:g.real,
+        avance:g.prog>0?+(g.real/g.prog*100).toFixed(1):null,
+        pend:g.prog!=null&&g.real!=null?+(g.prog-g.real).toFixed(1):null
+      }));
+      const wc=ss.filter(s=>s.avance!=null);
+      const avg=wc.length?(wc.reduce((a,s)=>a+s.avance,0)/wc.length).toFixed(1):null;
       const nEQ=[...new Set(filt.map(r=>r.eqtr))].length;
-      const nNPK=[...new Set(filt.map(r=>r.npk))].length;
-      const nDef=wc.filter(s=>s.cumpl<80).length;
-      const nOpt=wc.filter(s=>s.cumpl>=95&&s.cumpl<=110).length;
-      const fCol=v=>v==null?'var(--text3)':v>110?(DARK_MODE?'#7dd3fc':'#1d4ed8'):v>=95?(DARK_MODE?'#4ade80':'#15803d'):v>=80?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#f87171':'#b91c1c');
+      const nPend=wc.filter(s=>s.pend>0).length;
+      // Pendiente por NPK
+      const pendByNPK = {};
+      ['N','P','K'].forEach(npk=>{
+        const rows=ss.filter(s=>s.npk===npk&&s.pend!=null);
+        pendByNPK[npk]=+(rows.reduce((a,s)=>a+(s.pend||0),0)).toFixed(1);
+      });
+      const npkCol = {
+        N: DARK_MODE?'#38bdf8':'#0369a1',
+        P: DARK_MODE?'#fb923c':'#ea580c',
+        K: DARK_MODE?'#4ade80':'#15803d'
+      };
+      const fCol=v=>v==null?'var(--text3)':v>=100?(DARK_MODE?'#4ade80':'#15803d'):v>=75?(DARK_MODE?'#38bdf8':'#0369a1'):v>=50?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#fb923c':'#ea580c');
       fertEl.innerHTML=`<div style="display:flex;flex-direction:column;gap:.35rem;font-size:.75rem">
         <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">EQ-TR</span><b>${nEQ}</b></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Cumpl. promedio</span><b style="color:${fCol(avg)}">${avg!=null?avg+'%':'—'}</b></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">🟢 Óptimo</span><b style="color:${DARK_MODE?'#4ade80':'#15803d'}">${nOpt}</b></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">🔴 Déficit</span><b style="color:${DARK_MODE?'#f87171':'#b91c1c'}">${nDef}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">% Avance prom.</span><b style="color:${fCol(avg)}">${avg!=null?avg+'%':'—'}</b></div>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="color:var(--text3)">Pendiente por elemento</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.3rem;background:var(--surface2);border-radius:6px;padding:.4rem .5rem">
+          ${['N','P','K'].map(npk=>`
+            <div style="text-align:center">
+              <div style="font-weight:700;font-size:.72rem;color:${npkCol[npk]}">${npk}</div>
+              <div style="font-weight:600;font-size:.73rem;color:var(--text)">${pendByNPK[npk]>0?pendByNPK[npk]+' und':'✅'}</div>
+            </div>`).join('')}
+        </div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">EQ-TR con pendiente</span><b style="color:${DARK_MODE?'#fb923c':'#ea580c'}">${nPend}</b></div>
       </div>`;
     }
   }
@@ -4265,11 +4287,19 @@ function renderResumenSummaries(riegoData) {
       const nEQ=[...new Set(filt.map(r=>r.eqtr))].length;
       const nAlto=last.filter(r=>r.longTallo>=200).length;
       const ltCol=v=>v==null?'var(--text3)':v>=200?(DARK_MODE?'#4ade80':'#15803d'):v>=100?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#f87171':'#b91c1c');
+      // Extra metrics for summary
+      const tallosAll=last.map(r=>r.tallosMl).filter(v=>v!=null);
+      const diamAll=last.map(r=>r.diamTallo).filter(v=>v!=null);
+      const avgTallos=tallosAll.length?(tallosAll.reduce((a,b)=>a+b,0)/tallosAll.length).toFixed(1):null;
+      const avgDiam=diamAll.length?(diamAll.reduce((a,b)=>a+b,0)/diamAll.length).toFixed(2):null;
+      const fechasUniq=[...new Set(filt.map(r=>r.fecha).filter(Boolean))].sort();
+      const lastFecha=fechasUniq[fechasUniq.length-1]||'—';
       bioEl.innerHTML=`<div style="display:flex;flex-direction:column;gap:.35rem;font-size:.75rem">
         <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">EQ-TR evaluados</span><b>${nEQ}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Última evaluación</span><b style="color:var(--blue)">${lastFecha}</b></div>
         <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Long. tallo prom.</span><b style="color:${ltCol(avgAlt)}">${avgAlt!=null?avgAlt+' cm':'—'}</b></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">&ge;200 cm (adulta)</span><b style="color:${DARK_MODE?'#4ade80':'#15803d'}">${nAlto}</b></div>
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Evaluaciones</span><b>${[...new Set(filt.map(r=>r.fecha).filter(Boolean))].length}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Tallos/ML prom.</span><b style="color:${DARK_MODE?'#c084fc':'#7e22ce'}">${avgTallos!=null?avgTallos:'—'}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Diám. tallo prom.</span><b style="color:${DARK_MODE?'#38bdf8':'#0369a1'}">${avgDiam!=null?avgDiam+' cm':'—'}</b></div>
       </div>`;
     }
   }
@@ -4486,20 +4516,24 @@ function renderFertil() {
   })).sort((a,b) => a.eqtr.localeCompare(b.eqtr) || a.npk.localeCompare(b.npk));
 
   // Color helpers (reuse pCol / pBg logic)
-  const fCol = v => v==null?'var(--text3)':v>110?(DARK_MODE?'#7dd3fc':'#1d4ed8'):v>=95?(DARK_MODE?'#4ade80':'#15803d'):v>=80?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#f87171':'#b91c1c');
-  const fLabel = v => v==null?'—':v>110?'Exceso':v>=95?'Óptimo':v>=80?'Aceptable':'Déficit';
+  const fCol = v => v==null?'var(--text3)':v>=100?(DARK_MODE?'#4ade80':'#15803d'):v>=75?(DARK_MODE?'#38bdf8':'#0369a1'):v>=50?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#fb923c':'#ea580c');
+  const fLabel = v => v==null?'—':v>=100?'✅ Completo':'⏳ Pendiente';
 
   // KPIs
   const withCumpl = stats.filter(s=>s.cumpl!=null);
   const avgCumpl  = withCumpl.length ? (withCumpl.reduce((a,s)=>a+s.cumpl,0)/withCumpl.length).toFixed(1) : null;
-  const nOpt  = withCumpl.filter(s=>s.cumpl>=95&&s.cumpl<=110).length;
-  const nDef  = withCumpl.filter(s=>s.cumpl<80).length;
+  const nComplete = withCumpl.filter(s=>s.cumpl>=100).length;
+  const nPending  = withCumpl.filter(s=>s.cumpl<100).length;
+  const totalProg = stats.reduce((a,s)=>a+(s.prog||0),0);
+  const totalReal = stats.reduce((a,s)=>a+(s.real||0),0);
+  const totalPend = totalProg - totalReal;
   const nEQTR = [...new Set(stats.map(s=>s.eqtr))].size;
   document.getElementById('fert-kpis').innerHTML = `
     <div class="kpi kc1"><div class="kpi-val">${nEQTR}</div><div class="kpi-lbl">EQ-TR con fertilización</div></div>
-    <div class="kpi kc2"><div class="kpi-val" style="color:${fCol(avgCumpl)}">${avgCumpl!=null?avgCumpl+'%':'—'}</div><div class="kpi-lbl">Cumpl. promedio (${npkLabel})</div></div>
-    <div class="kpi kc5"><div class="kpi-val" style="color:${DARK_MODE?'#4ade80':'#15803d'}">${nOpt}</div><div class="kpi-lbl">Óptimo (95–110%)</div></div>
-    <div class="kpi kc4"><div class="kpi-val" style="color:${DARK_MODE?'#f87171':'#b91c1c'}">${nDef}</div><div class="kpi-lbl">Déficit (&lt;80%)</div></div>
+    <div class="kpi kc2"><div class="kpi-val" style="color:${fCol(avgCumpl)}">${avgCumpl!=null?avgCumpl+'%':'—'}</div><div class="kpi-lbl">% Avance promedio (${npkLabel})</div></div>
+    <div class="kpi kc5"><div class="kpi-val" style="color:${DARK_MODE?'#4ade80':'#15803d'}">${nComplete}</div><div class="kpi-lbl">EQ-TR completados</div></div>
+    <div class="kpi kc4"><div class="kpi-val" style="color:${DARK_MODE?'#fbbf24':'#b45309'}">${nPending}</div><div class="kpi-lbl">EQ-TR con pendiente</div></div>
+    <div class="kpi kc3"><div class="kpi-val" style="color:${DARK_MODE?'#fb923c':'#ea580c'}">${totalPend.toFixed(0)} und</div><div class="kpi-lbl">Total und. pendientes</div></div>
   `;
 
   // Chart: cumplimiento por EQ-TR (horizontal bar, grouped by NPK if ALL)
@@ -4536,7 +4570,7 @@ function renderFertil() {
     charts['ch-fert-cumpl'] = new Chart(document.getElementById('ch-fert-cumpl').getContext('2d'), {
       type:'bar',
       data:{ labels:npkStats.map(s=>s.eqtr), datasets:[{
-        label:`Cumpl. ${FERT_NPK} (%)`,
+        label:`Avance ${FERT_NPK} (%)`,
         data: npkStats.map(s=>s.cumpl),
         backgroundColor: npkStats.map(s=>fCol(s.cumpl)),
         borderRadius:3, barPercentage:.75
@@ -4554,10 +4588,11 @@ function renderFertil() {
   // Chart: distribución donut
   dc('ch-fert-dist');
   const distBins = [
-    {l:'Déficit <80%',  mn:0,   mx:80,  c:DARK_MODE?'#f87171':'#b91c1c'},
-    {l:'Aceptable 80–94%',mn:80,mx:95,  c:DARK_MODE?'#fbbf24':'#b45309'},
-    {l:'Óptimo 95–110%',mn:95,  mx:110, c:DARK_MODE?'#4ade80':'#15803d'},
-    {l:'Exceso >110%',  mn:110, mx:9999,c:DARK_MODE?'#7dd3fc':'#1d4ed8'},
+    {l:'0–25% ejecutado',   mn:0,   mx:25,  c:DARK_MODE?'#fb923c':'#ea580c'},
+    {l:'25–50% ejecutado',  mn:25,  mx:50,  c:DARK_MODE?'#fbbf24':'#b45309'},
+    {l:'50–75% ejecutado',  mn:50,  mx:75,  c:DARK_MODE?'#38bdf8':'#0369a1'},
+    {l:'75–99% ejecutado',  mn:75,  mx:100, c:DARK_MODE?'#c084fc':'#7e22ce'},
+    {l:'100% completado',   mn:100, mx:9999,c:DARK_MODE?'#4ade80':'#15803d'},
   ];
   const cumplVals = stats.filter(s=>s.cumpl!=null).map(s=>s.cumpl);
   const distCounts = distBins.map(b=>cumplVals.filter(v=>v>=b.mn&&v<b.mx).length);
@@ -4633,9 +4668,10 @@ function renderFertil() {
       <td class="r">${s.real!=null?s.real.toFixed(1):'—'}</td>
       <td class="r" style="font-size:.68rem;color:var(--text4)">${s.progAcum!=null?s.progAcum.toFixed(1):'—'} / ${s.realAcum!=null?s.realAcum.toFixed(1):'—'}</td>
       <td class="r" style="font-weight:600;color:${fCol(s.cumpl)}">${s.cumpl!=null?s.cumpl+'%':'—'}</td>
+      <td class="r" style="color:${s.prog!=null&&s.real!=null&&s.prog>s.real?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#4ade80':'#15803d')};font-weight:600">${s.prog!=null&&s.real!=null?(s.prog-s.real).toFixed(1)+' und':'—'}</td>
       <td style="font-size:.72rem">${fLabel(s.cumpl)}</td>
       <td class="r" style="font-size:.71rem">${s.ultApl||'—'}</td>
-    </tr>`).join('') || '<tr><td colspan="10" class="empty">Sin datos</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="11" class="empty">Sin datos</td></tr>';
 }
 
 
