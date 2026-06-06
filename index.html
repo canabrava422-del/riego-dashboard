@@ -1434,7 +1434,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <!-- Map container (collapsible) -->
         <div id="mapa-resumen-wrap" style="height:0;overflow:hidden;transition:height .3s">
           <div id="mapa-resumen-leaflet" style="height:420px;width:100%;
-            border-radius:8px;overflow:hidden;background:#1a2236"></div>
+            border-radius:8px;overflow:hidden;background:#e8e8e8"></div>
           <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;font-size:.71rem;color:var(--text3);padding-bottom:.5rem">
             <div style="display:flex;align-items:center;gap:.3rem"><div style="width:12px;height:3px;background:#4ade80;border-radius:2px"></div>Mi posición</div>
             <div style="display:flex;align-items:center;gap:.3rem"><div style="width:12px;height:3px;background:#3b82f6;border-radius:2px"></div>Con datos</div>
@@ -5788,19 +5788,18 @@ function initMapaResumen() {
   _mapR = L.map('mapa-resumen-leaflet', { zoomControl:true, attributionControl:false })
             .setView([cLat, cLon], 14);
 
-  // Try satellite tiles, fallback to OSM if blocked
-  const osmTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution:'© OpenStreetMap', maxZoom:19
-  });
-  const esriTile = L.tileLayer(
+  // Add OpenStreetMap tiles (most reliable on mobile networks)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'© OSM', maxZoom:19, subdomains:['a','b','c']
+  }).addTo(_mapR);
+  // Also add satellite as optional layer
+  const satLayer = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    { attribution:'Esri', maxZoom:19, errorTileUrl:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' }
+    { attribution:'Esri', maxZoom:19 }
   );
-  // Add satellite first; if tiles fail, keep OSM as backup layer
-  esriTile.addTo(_mapR);
-  // Add layer control so user can switch
   L.control.layers(
-    { '🛰 Satélite': esriTile, '🗺 Mapa': osmTile },
+    { '🗺 Mapa': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19}),
+      '🛰 Satélite': satLayer },
     {}, { position:'topright', collapsed:true }
   ).addTo(_mapR);
 
@@ -5812,18 +5811,21 @@ function initMapaResumen() {
     const isTurno = feat.typ === 'turno';
     const eqtrKey = isTurno ? key : (feat.parent || key);
     const hasData = RAW.some(r => r.eqtr === eqtrKey);
-    const col     = hasData ? '#3b82f6' : '#475569';
-    const fop     = isTurno ? 0.12 : 0.25;
-    const poly    = L.polygon(feat.poly.map(c=>[c[0],c[1]]), {
-      color:col, weight: isTurno ? 2 : 1,
-      fillColor: hasData ? `rgba(59,130,246,${fop})` : `rgba(71,85,105,${fop})`,
-      fillOpacity: fop, _eqtrKey: eqtrKey
+    const col  = hasData ? '#1d4ed8' : '#374151';
+    const fill = hasData ? '#3b82f6' : '#6b7280';
+    const fop  = isTurno ? 0.25 : 0.35;
+    const poly = L.polygon(feat.poly.map(c=>[c[0],c[1]]), {
+      color:col, weight: isTurno ? 2.5 : 1,
+      fillColor: fill, fillOpacity: fop,
+      _eqtrKey: eqtrKey
     });
     if (isTurno) {
       poly.addTo(tLayerR);
       L.marker([feat.lat,feat.lon],{
         icon:L.divIcon({className:'',
-          html:`<div style="font-size:8px;font-weight:700;color:white;text-shadow:0 0 3px #000;white-space:nowrap;pointer-events:none">${feat.label}</div>`,
+          html:`<div style="font-size:9px;font-weight:800;color:#1e3a5f;
+            text-shadow:0 0 2px #fff,0 0 2px #fff,0 0 2px #fff;
+            white-space:nowrap;pointer-events:none;letter-spacing:.02em">${feat.label}</div>`,
           iconAnchor:[0,0]})
       }).addTo(tLayerR);
       poly.on('click', () => showEQTRInfo(key));
@@ -5842,11 +5844,20 @@ function initMapaResumen() {
   // Center on all turnos
   try {
     const allTurnos = Object.values(GEO_MAP).filter(f=>f.typ==='turno');
+    console.log('[MapR] GEO_MAP turnos:', allTurnos.length);
     if (allTurnos.length) {
       const lls = allTurnos.map(f=>[f.lat, f.lon]);
-      _mapR.fitBounds(L.latLngBounds(lls), { padding:[10,10], maxZoom:15 });
+      const bounds = L.latLngBounds(lls);
+      console.log('[MapR] bounds:', bounds.toBBoxString());
+      _mapR.fitBounds(bounds, { padding:[20,20], maxZoom:14 });
+    } else {
+      // Fallback: center on Piura, Peru (approximate field location)
+      _mapR.setView([-4.95, -80.94], 13);
     }
-  } catch(e) {}
+  } catch(e) {
+    console.warn('[MapR] fitBounds error:', e);
+    _mapR.setView([-4.95, -80.94], 13);
+  }
   _mapR.invalidateSize();
 }
 
