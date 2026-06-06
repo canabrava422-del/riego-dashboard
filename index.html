@@ -5788,9 +5788,21 @@ function initMapaResumen() {
   _mapR = L.map('mapa-resumen-leaflet', { zoomControl:true, attributionControl:false })
             .setView([cLat, cLon], 14);
 
-  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-    attribution:'Esri', maxZoom:19
-  }).addTo(_mapR);
+  // Try satellite tiles, fallback to OSM if blocked
+  const osmTile = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:'© OpenStreetMap', maxZoom:19
+  });
+  const esriTile = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution:'Esri', maxZoom:19, errorTileUrl:'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7' }
+  );
+  // Add satellite first; if tiles fail, keep OSM as backup layer
+  esriTile.addTo(_mapR);
+  // Add layer control so user can switch
+  L.control.layers(
+    { '🛰 Satélite': esriTile, '🗺 Mapa': osmTile },
+    {}, { position:'topright', collapsed:true }
+  ).addTo(_mapR);
 
   // Draw polygons — turnos always, parcelas at zoom≥16
   const tLayerR = L.layerGroup().addTo(_mapR);
@@ -5827,7 +5839,18 @@ function initMapaResumen() {
   });
   _mapR.fire('zoomend');
 
-  _mapR.invalidateSize();
+  // Robust resize: wait for browser paint then resize
+  requestAnimationFrame(() => {
+    _mapR.invalidateSize();
+    // Center map on all turno features
+    try {
+      const allTurnos = Object.values(GEO_MAP).filter(f=>f.typ==='turno');
+      if (allTurnos.length) {
+        const latLngs = allTurnos.map(f => [f.lat, f.lon]);
+        _mapR.fitBounds(L.latLngBounds(latLngs), { padding:[20,20], maxZoom:15 });
+      }
+    } catch(e) {}
+  });
 }
 
 function centerGPSResumen() {
@@ -6016,11 +6039,19 @@ function toggleMapaResumen() {
   _mapaResumenActive = !_mapaResumenActive;
 
   if (_mapaResumenActive) {
-    wrap.style.display   = '';
+    // Show containers FIRST so Leaflet can measure them
+    wrap.style.display     = '';
     gpsStrip.style.display = '';
     btn.textContent = '✕ Desactivar mapa';
     btn.classList.add('active');
-    setTimeout(() => initMapaResumen(), 120);
+    // Init map after browser has painted the container
+    // Use multiple timeouts to handle slow renders on mobile
+    setTimeout(() => {
+      initMapaResumen();
+      // Force resize after a short delay (mobile needs more time)
+      setTimeout(() => { if (_mapR) _mapR.invalidateSize(); }, 300);
+      setTimeout(() => { if (_mapR) _mapR.invalidateSize(); }, 800);
+    }, 150);
     startGPS();
   } else {
     wrap.style.display   = 'none';
@@ -6141,15 +6172,21 @@ function onGPSUpdate(pos) {
 
   // Update GPS marker on resumen map
   if (_mapR) {
+    const isFirst = !_gpsMarkerR;
     if (!_gpsMarkerR) {
       _gpsMarkerR = L.circleMarker([lat, lon], {
-        radius:10, color:'#4ade80', fillColor:'#4ade80', fillOpacity:0.8, weight:3
+        radius:10, color:'#4ade80', fillColor:'#4ade80', fillOpacity:0.85, weight:3
       }).addTo(_mapR).bindPopup('📍 Estás aquí');
     } else { _gpsMarkerR.setLatLng([lat, lon]); }
     if (_mapR._accCircle) _mapR.removeLayer(_mapR._accCircle);
     _mapR._accCircle = L.circle([lat, lon], {
       radius:acc, color:'#4ade80', fillColor:'#4ade80', fillOpacity:0.08, weight:1, dashArray:'4'
     }).addTo(_mapR);
+    // Center map on first GPS fix
+    if (isFirst) {
+      _mapR.invalidateSize();
+      _mapR.setView([lat, lon], 15);
+    }
   }
 
   // Find top 3 nearest EQ-TR (turnos only)
