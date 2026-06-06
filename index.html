@@ -628,6 +628,8 @@ canvas{display:block;background:var(--surface);border-radius:4px}
     <button class="snav-btn" onclick="showSection('caudales',event)">💧 Caudales</button>
     <button class="snav-btn" onclick="showSection('infoGeneral',event)">📁 Info General</button>
     <button class="snav-btn" onclick="showSection('humedad',event)">💧 Humedad</button>
+    <button class="snav-btn" onclick="showSection('fertil',event)">🌱 Fertilización</button>
+    <button class="snav-btn" onclick="showSection('biometria',event)">📐 Biometría</button>
   </div>
 
   <!-- FILTERS -->
@@ -726,6 +728,19 @@ canvas{display:block;background:var(--surface);border-radius:4px}
           <div id="res-caudales-kpi"><div class="empty" style="padding:.6rem;font-size:.74rem">Sin datos (carga Excel con Hoja4)</div></div>
         </div>
       </div>
+      <!-- Fertilización + Biometría summaries -->
+      <div class="g">
+        <div class="panel c6 res-panel">
+          <div class="ph"><div class="pt">🌱 Fertilización</div></div>
+          <div id="res-fertil"><div class="empty" style="padding:.6rem;font-size:.74rem">Sin datos (carga Excel con Hoja7)</div></div>
+        </div>
+        <div class="panel c6 res-panel">
+          <div class="ph"><div class="pt">📐 Biometría</div></div>
+          <div id="res-biometria"><div class="empty" style="padding:.6rem;font-size:.74rem">Sin datos (carga Excel con Hoja8)</div></div>
+        </div>
+      </div>
+
+      <!-- Caudales evolution -->
       <div class="panel c12" style="margin-bottom:.4rem">
         <div class="ph"><div class="pt">📊 Caudales · evolución reciente <span style="font-size:.62rem;color:var(--text4)">top 5 EQ-TR</span></div></div>
         <div class="chart-wrap"><canvas id="ch-res-caudales" height="180"></canvas></div>
@@ -1112,6 +1127,102 @@ canvas{display:block;background:var(--surface);border-radius:4px}
       </div>
     </div>
 
+
+    <!-- ══════════════════ FERTILIZACIÓN (Hoja7) ══════════════════ -->
+    <div class="section" id="sec-fertil">
+      <div class="kpi-grid" id="fert-kpis" style="margin-bottom:1rem"></div>
+
+      <!-- Tabs for N / P / K -->
+      <div class="tab-bar" id="fert-tabs" style="margin-bottom:.8rem">
+        <button class="tab active" onclick="setFertNPK('N')">🟦 Nitrógeno (N)</button>
+        <button class="tab" onclick="setFertNPK('P')">🟧 Fósforo (P)</button>
+        <button class="tab" onclick="setFertNPK('K')">🟩 Potasio (K)</button>
+        <button class="tab" onclick="setFertNPK('ALL')">📊 Todos</button>
+      </div>
+
+      <!-- Cumplimiento general por EQ-TR -->
+      <div class="g">
+        <div class="panel c8">
+          <div class="ph"><div class="pt">Cumplimiento de fertilización por EQ-TR <span class="pt-badge" id="fert-npk-lbl">N</span></div></div>
+          <div class="chart-wrap"><canvas id="ch-fert-cumpl" height="280"></canvas></div>
+        </div>
+        <div class="panel c4">
+          <div class="ph"><div class="pt">Distribución % cumplimiento</div></div>
+          <div class="chart-wrap" style="max-height:280px"><canvas id="ch-fert-dist" height="280"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Evolución semanal -->
+      <div class="panel c12" style="margin-bottom:.7rem">
+        <div class="ph">
+          <div class="pt">Evolución semanal · Programado vs Ejecutado <span class="pt-badge" id="fert-evol-lbl">N · todos los EQ-TR</span></div>
+          <select id="fert-eqtr-sel" onchange="renderFertil()"
+            style="background:var(--surface2);border:1px solid var(--border2);color:var(--text);
+                   padding:.3rem .6rem;border-radius:6px;font-size:.76rem;font-family:var(--sans)">
+            <option value="ALL">Todos los EQ-TR</option>
+          </select>
+        </div>
+        <div class="chart-wrap"><canvas id="ch-fert-evol" height="240"></canvas></div>
+      </div>
+
+      <!-- Tabla detallada -->
+      <div class="panel c12">
+        <div class="ph"><div class="pt">Tabla resumen fertilización por EQ-TR</div></div>
+        <div class="tw">
+          <table class="tbl">
+            <thead><tr>
+              <th>EQ-TR</th><th>EQ</th><th>TR</th><th>NPK</th>
+              <th class="r">Total prog. (kg)</th><th class="r">Total ejec. (kg)</th>
+              <th class="r">Acum. prog/ejec.</th>
+              <th class="r">% Cumpl.</th><th>Estado</th>
+              <th class="r">Últ. aplicación</th>
+            </tr></thead>
+            <tbody id="tbody-fertil"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- ══════════════════ BIOMETRÍA (Hoja8) ══════════════════ -->
+    <div class="section" id="sec-biometria">
+      <div class="kpi-grid" id="bio-kpis" style="margin-bottom:1rem"></div>
+      <div class="g">
+        <div class="panel c8">
+          <div class="ph"><div class="pt">Altura de planta (cm) por EQ-TR · última evaluación</div></div>
+          <div class="chart-wrap"><canvas id="ch-bio-altura" height="260"></canvas></div>
+        </div>
+        <div class="panel c4">
+          <div class="ph"><div class="pt">Distribución por estado</div></div>
+          <div class="chart-wrap" style="max-height:260px"><canvas id="ch-bio-dist" height="260"></canvas></div>
+        </div>
+      </div>
+      <div class="g">
+        <div class="panel c6">
+          <div class="ph"><div class="pt">Evolución de altura por fecha</div></div>
+          <div class="chart-wrap"><canvas id="ch-bio-evol" height="240"></canvas></div>
+        </div>
+        <div class="panel c6">
+          <div class="ph"><div class="pt">Número de tallos por EQ-TR</div></div>
+          <div class="chart-wrap"><canvas id="ch-bio-tallos" height="240"></canvas></div>
+        </div>
+      </div>
+      <div class="panel c12" style="margin-top:.7rem">
+        <div class="ph"><div class="pt">Tabla detallada · Biometría por EQ-TR</div></div>
+        <div class="tw">
+          <table class="tbl">
+            <thead><tr>
+              <th>EQ-TR</th><th>EQ</th><th>TR</th>
+              <th>Fecha eval.</th><th class="r">N° puntos</th>
+              <th class="r">Long. tallo prom (cm)</th><th class="r">Tallos/ML</th>
+              <th class="r">Diám. prom (cm)</th><th>Estado</th>
+            </tr></thead>
+            <tbody id="tbody-biometria"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </div><!-- /main -->
 
   <!-- MOBILE FILTER OVERLAY + DRAWER -->
@@ -1179,6 +1290,8 @@ let PROGRAMA = [];  // hoja3: programa de riego
 let CAUDALES = [];  // hoja4: desviación de caudales
 let INFOGENS = [];  // hoja5: información general (columnas amarillas)
 let HUMEDAD  = [];  // hoja6: % humedad del suelo
+let FERTIL   = [];  // hoja7: fertilización programada y ejecutada
+let BIOMTRIA = [];  // hoja8: biometría
 const FALLA_DESC = {"F010": "Abastecimiento de Agua", "F0101": "Bajo nivel de agua en canal o río", "F0103": "Bajo Nivel en Canal", "F0104": "Bajo Nivel Río Chira", "F070": "Abastecimiento de Insumos", "F0701": "Urea, ácido nítrico, comp. nitrogenados", "F0702": "Ácido fosfórico, comp. fosfatados", "F0703": "Sulfato de potasio, comp. potásicos", "F0704": "Otros compuestos fertilizantes", "F060": "Abastecimiento Eléctrico", "F0601": "Caída de tensión de red", "F0602": "Corte de fluido eléctrico", "F0603": "Sobrecarga eléctrica", "F0604": "Fusibles", "F0605": "Instalación eléctrica", "F0606": "Batería", "F0607": "Cables", "F0608": "Desbalance de energía", "F0609": "Mantenimiento de sub estación", "F0610": "Restricción de carga", "F0611": "Mantenimiento de UPS", "F040": "Automatización", "F0401": "Agronic / Dream/PLC", "F0402": "Sistema remoto", "F0403": "Programador de riego", "F0404": "Líneas de suministro eléctrico", "F0405": "Tableros eléctricos", "F0406": "Sensores", "F0407": "RTU / MAR", "F0408": "Solenoides", "F0409": "EAR / EAM / MAM", "F0410": "Monocable", "F0411": "Falla en Comunicación del Controlador", "F0412": "Activación de Válvulas", "F100": "Calidad de Agua", "F1001": "NTU Altos", "F1002": "FITOPLANCTON: Algas", "F1003": "ZOOPLANCTON: Ostrácodos y Copépodos", "F1004": "Dosis Shock en Reservorio", "F1005": "Sedimentos en reservorio", "F020": "Capacidad de Riego", "F0201": "Diseño del sistema", "F0202": "Exceso de Humedad", "F0203": "Por ajuste de caudales (adelanto o retraso) dentro del día", "F0204": "Limitada capacidad de reservorio", "F090": "Eventos externos", "F0901": "Inundaciones", "F0902": "Incendios", "F0903": "Problema social", "F0904": "Lluvia", "F0905": "Robo de Equipos de Riego", "F0906": "Alto en NTU", "F030": "Hidráulica", "F0301": "Tubería matriz", "F0302": "Electrobomba", "F0303": "Filtros", "F0304": "Cabezal del filtrado", "F0305": "Mantenimiento de Reservorio", "F0306": "Arco de riego", "F0307": "Mangueras", "F0308": "Válvula de purga de aire", "F0309": "Sostenedora", "F0310": "Membrana de válvulas", "F0311": "Coletas de sub-matriz", "F0312": "Inyección de Fertilizantes", "F0313": "Válvulas", "F0314": "Aductoras", "F0315": "Captación", "F0316": "Manifold", "F0317": "Tanque", "F0318": "Tanque de arena", "F0319": "Mezclador", "F0320": "Fertímetro", "F0321": "Tubería Submatriz", "F0322": "Hidrómetro", "F0323": "Coleta de Matriz", "F0324": "Válvula de alivio", "F0325": "Activación de Válvulas", "F0326": "Mtto de tomas flotantes", "F501": "Conexión válvula de aire - aductora", "F050": "Mantenimiento Preventivo/Programado", "F0501": "Filtros", "F0502": "Cabezal del filtrado", "F0503": "Limpieza de Reservorio", "F0504": "Válvulas de arco de riego", "F0505": "Bombas horizontales", "F0506": "Membrana de sostenedora", "F0507": "Membrana de válvulas", "F0508": "Bombas verticales", "F0509": "Controladores de filtros", "F0510": "Matrices", "F0511": "Aductoras", "F0512": "Sub Estaciones Eléctricas", "F0513": "Hidrómetros", "F0514": "Sostenedoras", "F0515": "Cambio de anillas", "F0516": "Trabajos en filtrado", "F0517": "Instalaciones arco de riego", "F0518": "Revisión de succión de bombas", "F0519": "Baja presión", "F0520": "Regulación de presiones", "F0521": "Cambio de empaque", "F0522": "Cabezal de filtrado - ANILLAS", "F0523": "Cabezal de filtrado - GRAVA", "F0524": "Cabezal de filtrado - MALLA", "F0525": "Limpieza de desarenador", "F080": "Operación", "F0000": "Dentro del rango (Múltiplo 10 M3)", "F0801": "Incumplimiento de programa", "F0802": "Personal no atento a la operación", "F0803": "Daños causados por equipos de cosecha", "F0804": "Daños causados por equipos de transporte", "F0805": "Daños causados por problemas en fábrica", "F0807": "Daños causados por Maquinaria Agrícola", "F0808": "Campo en Agoste", "F0809": "Evaluación de coeficiente", "F0810": "Limpieza de laterales (purga)", "F0811": "Machaco", "F0812": "Parada de riego", "F0813": "Riego un pulso", "F0814": "Regulación de presiones", "F0815": "Resiembra", "F0816": "Revisión de manguera", "F0817": "Riego adicional", "F0818": "Riego continúa al sgte. día", "F0819": "Válvulas activadas", "F0820": "Válvulas desactivadas", "F0821": "Siembra", "F0822": "Cumplimiento de Riego", "F0823": "Evaluaciones post aplicaciones", "F0824": "Recuperación de lámina", "F0825": "Riego del día anterior", "F0826": "Entable", "F0827": "Por compensación - Caudales altos-bajos", "F0829": "Aplicación con Dron / Avioneta", "F0830": "Tendido de manguera", "F0831": "Instalación válvulas de corte - pig", "F0832": "Investigación - Ensayos", "F0833": "Actualización del programa de riego", "F0834": "Inyección de correctores para limpieza de Manguera", "F0835": "Inyección de agroquímicos", "F0836": "Inyección de enmiendas", "F0837": "Lavado de Flushing", "F0838": "Movimiento de manguera", "F0839": "Plan cero fugas", "F0840": "Aplicación fitosanitaria", "F0841": "Ajuste de riego por humedad", "F0842": "Por riego del turno virtual", "F0843": "Riego de turno incompleto por parcela quemada", "F0844": "Compensación de áreas", "F0845": "Adicional por trabajos de maquinaria", "F0846": "Levantamiento de manguera", "F0847": "Labores Mecanizadas Agrícolas", "F0848": "Labores mecanizadas CAT", "F0849": "Agoste Anticipado", "F0850": "Elaboración del Programación de Riego", "F0851": "Dragado", "F0852": "Machaco por lavado de sales"};
 function fallaDesc(code) { return code ? (FALLA_DESC[String(code).trim()] || String(code).trim()) : '—'; }
 let LEVEL = 'EQ';
@@ -1735,6 +1848,8 @@ function renderSection(id, data) {
   if(id==='caudales')    renderCaudales();
   if(id==='infoGeneral') renderInfoGeneral();
   if(id==='humedad')     renderHumedad();
+  if(id==='fertil')      renderFertil();
+  if(id==='biometria')   renderBiometria();
 }
 
 // ═══════════════════════════════════════════════
@@ -2795,7 +2910,7 @@ function renderCaudales() {
       <td class="r" style="color:#fca5a5">${r.mn!=null?r.mn.toFixed(1)+'%':'—'}</td>
       <td class="r" style="color:#86efac">${r.mx!=null?r.mx.toFixed(1)+'%':'—'}</td>
       <td style="font-size:.72rem">${cldLabel(r.avg)}</td>
-    </tr>`).join('') || '<tr><td colspan="9" class="empty">Sin datos</td></tr>';
+    </tr>`).join('') || '<tr><td colspan="10" class="empty">Sin datos</td></tr>';
 
   // ── Raw table — datos tal cual del Excel (con filtros) ──
   const rawWrap = document.getElementById('caud-raw-wrap');
@@ -3252,6 +3367,8 @@ function applyTheme() {
     if (CURRENT_SECTION === 'caudales')    { if(typeof renderCaudales  === 'function') renderCaudales(); }
     if (CURRENT_SECTION === 'infoGeneral') { if(typeof renderInfoGeneral=== 'function') renderInfoGeneral(); }
     if (CURRENT_SECTION === 'humedad')     { if(typeof renderHumedad   === 'function') renderHumedad(); }
+    if (CURRENT_SECTION === 'fertil')      { if(typeof renderFertil    === 'function') renderFertil(); }
+    if (CURRENT_SECTION === 'biometria')   { if(typeof renderBiometria === 'function') renderBiometria(); }
   }, 60);
 }
 
@@ -3413,6 +3530,25 @@ function processArrayBuffer(arrayBuffer, fileName) {
               const j6 = XLSX.utils.sheet_to_json(s6, { defval:null, raw:false });
               HUMEDAD = parseHumedad(j6);
             } catch(e6) { console.warn('Hoja6 error:', e6); }
+          }
+          // Hoja7 — fertilización
+          FERTIL = [];
+          if (wb.SheetNames.length > 6) {
+            try {
+              const s7 = wb.Sheets[wb.SheetNames[6]];
+              // Use header:1 raw to preserve week number columns
+              const j7 = XLSX.utils.sheet_to_json(s7, { defval:null, raw:true, header:1 });
+              FERTIL = parseFertil(j7);
+            } catch(e7) { console.warn('Hoja7 error:', e7); }
+          }
+          // Hoja8 — biometría
+          BIOMTRIA = [];
+          if (wb.SheetNames.length > 7) {
+            try {
+              const s8 = wb.Sheets[wb.SheetNames[7]];
+              const j8 = XLSX.utils.sheet_to_json(s8, { defval:null, raw:false });
+              BIOMTRIA = parseBiometria(j8);
+            } catch(e8) { console.warn('Hoja8 error:', e8); }
           }
           Object.keys(MS).forEach(k => { MS[k].sel = new Set(); });
           DET_TAB = 'TOTAL'; SEM_TAB = null;
@@ -4070,6 +4206,74 @@ function renderResumenSummaries(riegoData) {
     }
   }
 
+  // ── FERTILIZACIÓN SUMMARY ──
+  const fertEl = document.getElementById('res-fertil');
+  if (fertEl) {
+    if (!FERTIL.length) {
+      fertEl.innerHTML = '<span style="color:var(--text4)">Sin datos de Hoja7</span>';
+    } else {
+      const _selFD=getSelMS('ms-fd'),_selEQ=getSelMS('ms-eq'),_selEQTR=getSelMS('ms-eqtr');
+      const filt = FERTIL.filter(r=>{
+        if(_selFD.length&&!_selFD.includes(r.fd))return false;
+        if(_selEQ.length&&!_selEQ.includes(r.eq))return false;
+        if(_selEQTR.length&&!_selEQTR.includes(r.eqtr))return false;
+        return true;
+      });
+      // Build per eqtr+npk summary using undTotal
+      const bk = new Map();
+      filt.forEach(r=>{
+        const k=r.eqtr+'|'+r.npk;
+        if(!bk.has(k)) bk.set(k,{prog:null,real:null});
+        if(r.clase==='prog') bk.get(k).prog=r.undTotal;
+        if(r.clase==='real') bk.get(k).real=r.undTotal;
+      });
+      const ss=[...bk.values()].map(g=>({cumpl:g.prog>0?Math.round(g.real/g.prog*1000)/10:null}));
+      const wc=ss.filter(s=>s.cumpl!=null);
+      const avg=wc.length?(wc.reduce((a,s)=>a+s.cumpl,0)/wc.length).toFixed(1):null;
+      const nEQ=[...new Set(filt.map(r=>r.eqtr))].length;
+      const nNPK=[...new Set(filt.map(r=>r.npk))].length;
+      const nDef=wc.filter(s=>s.cumpl<80).length;
+      const nOpt=wc.filter(s=>s.cumpl>=95&&s.cumpl<=110).length;
+      const fCol=v=>v==null?'var(--text3)':v>110?(DARK_MODE?'#7dd3fc':'#1d4ed8'):v>=95?(DARK_MODE?'#4ade80':'#15803d'):v>=80?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#f87171':'#b91c1c');
+      fertEl.innerHTML=`<div style="display:flex;flex-direction:column;gap:.35rem;font-size:.75rem">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">EQ-TR</span><b>${nEQ}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Cumpl. promedio</span><b style="color:${fCol(avg)}">${avg!=null?avg+'%':'—'}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">🟢 Óptimo</span><b style="color:${DARK_MODE?'#4ade80':'#15803d'}">${nOpt}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">🔴 Déficit</span><b style="color:${DARK_MODE?'#f87171':'#b91c1c'}">${nDef}</b></div>
+      </div>`;
+    }
+  }
+
+  // ── BIOMETRÍA SUMMARY ──
+  const bioEl = document.getElementById('res-biometria');
+  if (bioEl) {
+    if (!BIOMTRIA.length) {
+      bioEl.innerHTML = '<span style="color:var(--text4)">Sin datos de Hoja8</span>';
+    } else {
+      const _selFD=getSelMS('ms-fd'),_selEQ=getSelMS('ms-eq'),_selEQTR=getSelMS('ms-eqtr');
+      const filt=BIOMTRIA.filter(r=>{
+        if(_selFD.length&&!_selFD.includes(r.fd))return false;
+        if(_selEQ.length&&!_selEQ.includes(r.eq))return false;
+        if(_selEQTR.length&&!_selEQTR.includes(r.eqtr))return false;
+        return true;
+      });
+      const ldm=new Map();
+      filt.forEach(r=>{if(!r.fecha)return;const c=ldm.get(r.eqtr);if(!c||r.fecha>c)ldm.set(r.eqtr,r.fecha);});
+      const last=filt.filter(r=>r.fecha&&ldm.get(r.eqtr)===r.fecha);
+      const alts=last.map(r=>r.longTallo).filter(v=>v!=null);
+      const avgAlt=alts.length?(alts.reduce((a,b)=>a+b,0)/alts.length).toFixed(1):null;
+      const nEQ=[...new Set(filt.map(r=>r.eqtr))].length;
+      const nAlto=last.filter(r=>r.longTallo>=200).length;
+      const ltCol=v=>v==null?'var(--text3)':v>=200?(DARK_MODE?'#4ade80':'#15803d'):v>=100?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#f87171':'#b91c1c');
+      bioEl.innerHTML=`<div style="display:flex;flex-direction:column;gap:.35rem;font-size:.75rem">
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">EQ-TR evaluados</span><b>${nEQ}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Long. tallo prom.</span><b style="color:${ltCol(avgAlt)}">${avgAlt!=null?avgAlt+' cm':'—'}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">&ge;200 cm (adulta)</span><b style="color:${DARK_MODE?'#4ade80':'#15803d'}">${nAlto}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Evaluaciones</span><b>${[...new Set(filt.map(r=>r.fecha).filter(Boolean))].length}</b></div>
+      </div>`;
+    }
+  }
+
   // ── CAUDALES EVOLUTION — mismo gráfico que "Evolución temporal" en sección Caudales ──
   dc('ch-res-caudales');
   const cauEl = document.getElementById('ch-res-caudales');
@@ -4157,6 +4361,520 @@ function renderResumenSummaries(riegoData) {
       }
     }
   }
+}
+
+
+// ═══════════════════════════════════════════════
+//  HOJA7 — FERTILIZACIÓN
+// ═══════════════════════════════════════════════
+let FERT_NPK = 'N';  // current NPK filter
+
+window.setFertNPK = function(npk) {
+  FERT_NPK = npk;
+  document.querySelectorAll('#fert-tabs .tab').forEach((b,i) => {
+    b.classList.toggle('active', b.textContent.includes(npk) || (npk==='ALL' && b.textContent.includes('Todos')));
+  });
+  renderFertil();
+};
+
+function parseFertil(rawRows) {
+  // rawRows[0] = headers: [EQ-TR, FD, EQ, TR, FD-EQ-TR, Clase, Ult.Aplicación, NPK, Und.Total, Und.Acum., 1, 2, 3...]
+  if (!rawRows || rawRows.length < 2) return [];
+  const hdrs = rawRows[0];
+  // Find week columns (numeric headers starting from index 10)
+  const weekCols = [];
+  for (let i = 10; i < hdrs.length; i++) {
+    const h = hdrs[i];
+    if (h != null && !isNaN(parseFloat(h))) {
+      weekCols.push({ idx: i, sem: Math.round(parseFloat(h)) });
+    }
+  }
+
+  const COL = { eqtr:0, fd:1, eq:2, tr:3, clase:5, ultApl:6, npk:7, undTotal:8, undAcum:9 };
+  const result = [];
+
+  for (let i = 1; i < rawRows.length; i++) {
+    const row = rawRows[i];
+    if (!row || !row[COL.eqtr]) continue;
+    const clase = String(row[COL.clase] || '').trim();
+    // Only process Prog (2 Prog) and Real (4 Real)
+    const isProg = clase.includes('2') && clase.toLowerCase().includes('prog');
+    const isReal = clase.includes('4') && clase.toLowerCase().includes('real');
+    if (!isProg && !isReal) continue;
+
+    const npk  = String(row[COL.npk] || '').trim().toUpperCase();
+    if (!['N','P','K'].includes(npk)) continue;
+
+    // Build weekly values
+    const weeks = {};
+    weekCols.forEach(wc => {
+      const v = row[wc.idx];
+      if (v != null && v !== '' && !isNaN(parseFloat(v))) {
+        weeks[wc.sem] = parseFloat(v);
+      }
+    });
+
+    result.push({
+      eqtr:     String(row[COL.eqtr] || '').trim(),
+      fd:       String(row[COL.fd]   || '').trim(),
+      eq:       String(row[COL.eq]   || '').trim(),
+      tr:       String(row[COL.tr]   || '').trim(),
+      npk,
+      clase:    isProg ? 'prog' : 'real',
+      ultApl:   isReal && row[COL.ultApl] ? String(row[COL.ultApl]).slice(0,10) : null,
+      undTotal: parseFloat(row[COL.undTotal]) || null,
+      undAcum:  parseFloat(row[COL.undAcum])  || null,
+      weeks,    // { semana: valor }
+    });
+  }
+  return result;
+}
+
+function renderFertil() {
+  if (!FERTIL.length) {
+    document.getElementById('fert-kpis').innerHTML =
+      '<div class="empty" style="grid-column:span 4">No hay datos (Hoja7 no detectada)</div>';
+    return;
+  }
+
+  // Apply main filters
+  const selFD   = getSelMS('ms-fd');
+  const selEQ   = getSelMS('ms-eq');
+  const selEQTR = getSelMS('ms-eqtr');
+
+  let filtered = FERTIL.filter(r => {
+    if (selFD.length   && !selFD.includes(r.fd))     return false;
+    if (selEQ.length   && !selEQ.includes(r.eq))     return false;
+    if (selEQTR.length && !selEQTR.includes(r.eqtr)) return false;
+    return true;
+  });
+
+  // NPK filter
+  const npkList = FERT_NPK === 'ALL' ? ['N','P','K'] : [FERT_NPK];
+  const filtNPK = filtered.filter(r => npkList.includes(r.npk));
+
+  // Update labels
+  const npkLabel = FERT_NPK === 'ALL' ? 'N + P + K' : FERT_NPK;
+  const el1 = document.getElementById('fert-npk-lbl');
+  const el2 = document.getElementById('fert-evol-lbl');
+  if (el1) el1.textContent = npkLabel;
+
+  // Populate EQ-TR selector
+  const eqtrSel = document.getElementById('fert-eqtr-sel');
+  const curSel  = eqtrSel ? eqtrSel.value : 'ALL';
+  const allEQTR = [...new Set(filtered.map(r=>r.eqtr))].sort();
+  if (eqtrSel) {
+    eqtrSel.innerHTML = '<option value="ALL">Todos los EQ-TR</option>' +
+      allEQTR.map(e => `<option value="${e}"${e===curSel?' selected':''}>${e}</option>`).join('');
+  }
+  const selEQTRFert = eqtrSel ? eqtrSel.value : 'ALL';
+  if (el2) el2.textContent = npkLabel + (selEQTRFert !== 'ALL' ? ' · ' + selEQTRFert : ' · todos los EQ-TR');
+
+  // Build per-EQ-TR summary (NPK filtered)
+  const byKey = new Map(); // key = eqtr+npk
+  filtNPK.forEach(r => {
+    const key = r.eqtr + '|' + r.npk;
+    if (!byKey.has(key)) byKey.set(key, { eqtr:r.eqtr, eq:r.eq, tr:r.tr, npk:r.npk,
+      prog:null, real:null, ultApl:null, progWeeks:{}, realWeeks:{} });
+    const g = byKey.get(key);
+    if (r.clase === 'prog') { g.prog = r.undTotal; g.progAcum = r.undAcum; g.progWeeks = r.weeks; }
+    if (r.clase === 'real') { g.real = r.undTotal; g.realAcum = r.undAcum; g.ultApl = r.ultApl; g.realWeeks = r.weeks; }
+  });
+  const stats = [...byKey.values()].map(g => ({
+    ...g,
+    cumpl: g.prog > 0 ? Math.round(g.real / g.prog * 1000) / 10 : null
+  })).sort((a,b) => a.eqtr.localeCompare(b.eqtr) || a.npk.localeCompare(b.npk));
+
+  // Color helpers (reuse pCol / pBg logic)
+  const fCol = v => v==null?'var(--text3)':v>110?(DARK_MODE?'#7dd3fc':'#1d4ed8'):v>=95?(DARK_MODE?'#4ade80':'#15803d'):v>=80?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#f87171':'#b91c1c');
+  const fLabel = v => v==null?'—':v>110?'Exceso':v>=95?'Óptimo':v>=80?'Aceptable':'Déficit';
+
+  // KPIs
+  const withCumpl = stats.filter(s=>s.cumpl!=null);
+  const avgCumpl  = withCumpl.length ? (withCumpl.reduce((a,s)=>a+s.cumpl,0)/withCumpl.length).toFixed(1) : null;
+  const nOpt  = withCumpl.filter(s=>s.cumpl>=95&&s.cumpl<=110).length;
+  const nDef  = withCumpl.filter(s=>s.cumpl<80).length;
+  const nEQTR = [...new Set(stats.map(s=>s.eqtr))].size;
+  document.getElementById('fert-kpis').innerHTML = `
+    <div class="kpi kc1"><div class="kpi-val">${nEQTR}</div><div class="kpi-lbl">EQ-TR con fertilización</div></div>
+    <div class="kpi kc2"><div class="kpi-val" style="color:${fCol(avgCumpl)}">${avgCumpl!=null?avgCumpl+'%':'—'}</div><div class="kpi-lbl">Cumpl. promedio (${npkLabel})</div></div>
+    <div class="kpi kc5"><div class="kpi-val" style="color:${DARK_MODE?'#4ade80':'#15803d'}">${nOpt}</div><div class="kpi-lbl">Óptimo (95–110%)</div></div>
+    <div class="kpi kc4"><div class="kpi-val" style="color:${DARK_MODE?'#f87171':'#b91c1c'}">${nDef}</div><div class="kpi-lbl">Déficit (&lt;80%)</div></div>
+  `;
+
+  // Chart: cumplimiento por EQ-TR (horizontal bar, grouped by NPK if ALL)
+  dc('ch-fert-cumpl');
+  if (FERT_NPK === 'ALL') {
+    // One dataset per NPK
+    const npks = ['N','P','K'];
+    const npkColors = {
+      N: DARK_MODE?'#38bdf8':'#0369a1',
+      P: DARK_MODE?'#fb923c':'#ea580c',
+      K: DARK_MODE?'#4ade80':'#15803d'
+    };
+    const allEQ = [...new Set(stats.map(s=>s.eqtr))].sort();
+    charts['ch-fert-cumpl'] = new Chart(document.getElementById('ch-fert-cumpl').getContext('2d'), {
+      type:'bar',
+      data:{ labels:allEQ, datasets:npks.map(npk => ({
+        label: npk,
+        data: allEQ.map(e => {
+          const s = stats.find(x=>x.eqtr===e && x.npk===npk);
+          return s ? s.cumpl : null;
+        }),
+        backgroundColor: npkColors[npk], borderRadius:3, barPercentage:.7
+      }))},
+      options:{ ...getCD(), indexAxis:'y',
+        plugins:{ legend:{ labels:{ color:tk(), font:{size:10,weight:'500'}, boxWidth:10 }}},
+        scales:{
+          x:{ ticks:{color:tk(),font:{size:9},callback:v=>v+'%'}, grid:{color:gc()}, min:0 },
+          y:{ ticks:{color:tk(),font:{size:8}}, grid:{color:gc()} }
+        }
+      }
+    });
+  } else {
+    const npkStats = stats.filter(s=>s.npk===FERT_NPK).sort((a,b)=>(b.cumpl||0)-(a.cumpl||0));
+    charts['ch-fert-cumpl'] = new Chart(document.getElementById('ch-fert-cumpl').getContext('2d'), {
+      type:'bar',
+      data:{ labels:npkStats.map(s=>s.eqtr), datasets:[{
+        label:`Cumpl. ${FERT_NPK} (%)`,
+        data: npkStats.map(s=>s.cumpl),
+        backgroundColor: npkStats.map(s=>fCol(s.cumpl)),
+        borderRadius:3, barPercentage:.75
+      }]},
+      options:{ ...getCD(), indexAxis:'y',
+        plugins:{ legend:{display:false} },
+        scales:{
+          x:{ ticks:{color:tk(),font:{size:9},callback:v=>v+'%'}, grid:{color:gc()}, min:0 },
+          y:{ ticks:{color:tk(),font:{size:8}}, grid:{color:gc()} }
+        }
+      }
+    });
+  }
+
+  // Chart: distribución donut
+  dc('ch-fert-dist');
+  const distBins = [
+    {l:'Déficit <80%',  mn:0,   mx:80,  c:DARK_MODE?'#f87171':'#b91c1c'},
+    {l:'Aceptable 80–94%',mn:80,mx:95,  c:DARK_MODE?'#fbbf24':'#b45309'},
+    {l:'Óptimo 95–110%',mn:95,  mx:110, c:DARK_MODE?'#4ade80':'#15803d'},
+    {l:'Exceso >110%',  mn:110, mx:9999,c:DARK_MODE?'#7dd3fc':'#1d4ed8'},
+  ];
+  const cumplVals = stats.filter(s=>s.cumpl!=null).map(s=>s.cumpl);
+  const distCounts = distBins.map(b=>cumplVals.filter(v=>v>=b.mn&&v<b.mx).length);
+  charts['ch-fert-dist'] = new Chart(document.getElementById('ch-fert-dist').getContext('2d'), {
+    type:'doughnut',
+    data:{ labels:distBins.map(b=>b.l), datasets:[{
+      data:distCounts, backgroundColor:distBins.map(b=>b.c+'bb'),
+      borderColor:distBins.map(b=>b.c), borderWidth:2, hoverOffset:5
+    }]},
+    options:{ responsive:true, animation:false, cutout:'55%',
+      plugins:{ legend:{ position:'bottom', labels:{ color:tk(), font:{size:9,weight:'500'}, boxWidth:10, padding:6,
+        generateLabels: chart => chart.data.labels.map((l,i)=>({
+          text:`${l}  (${distCounts[i]})`, fillStyle:distBins[i].c+'bb',
+          strokeStyle:distBins[i].c, lineWidth:2, index:i
+        }))
+      }}}}
+  });
+
+  // Chart: evolución semanal prog vs real
+  dc('ch-fert-evol');
+  // Collect all week numbers
+  const weekSet = new Set();
+  filtNPK.forEach(r => Object.keys(r.weeks).forEach(w => weekSet.add(+w)));
+  const allWeeks = [...weekSet].sort((a,b)=>a-b);
+
+  // Filter by selected EQ-TR
+  const evolFilt = filtNPK.filter(r => selEQTRFert === 'ALL' || r.eqtr === selEQTRFert);
+
+  // Aggregate prog and real across EQ-TR for each week
+  const weekProg = {}, weekReal = {};
+  allWeeks.forEach(w => { weekProg[w] = 0; weekReal[w] = 0; });
+  evolFilt.filter(r=>r.clase==='prog').forEach(r => {
+    allWeeks.forEach(w => { if (r.weeks[w]) weekProg[w] += r.weeks[w]; });
+  });
+  evolFilt.filter(r=>r.clase==='real').forEach(r => {
+    allWeeks.forEach(w => { if (r.weeks[w]) weekReal[w] += r.weeks[w]; });
+  });
+
+  charts['ch-fert-evol'] = new Chart(document.getElementById('ch-fert-evol').getContext('2d'), {
+    type:'bar',
+    data:{
+      labels: allWeeks.map(w => 'Sem '+w),
+      datasets:[
+        { label:'Programado', data:allWeeks.map(w=>weekProg[w]||null),
+          backgroundColor:DARK_MODE?'rgba(245,158,11,.6)':'rgba(180,83,9,.7)',
+          borderColor:DARK_MODE?'#f59e0b':'#b45309', borderWidth:1, borderRadius:3, order:2 },
+        { label:'Ejecutado', data:allWeeks.map(w=>weekReal[w]||null),
+          backgroundColor:DARK_MODE?'rgba(74,222,128,.6)':'rgba(21,128,61,.7)',
+          borderColor:DARK_MODE?'#4ade80':'#15803d', borderWidth:1, borderRadius:3, order:2 },
+      ]
+    },
+    options:{ ...getCD(),
+      plugins:{ legend:{ labels:{ color:tk(), font:{size:10,weight:'500'}, boxWidth:10 }}},
+      scales:{
+        x:{ ticks:{color:tk(),font:{size:9}}, grid:{color:gc()} },
+        y:{ ticks:{color:tk(),font:{size:9}}, grid:{color:gc()},
+            title:{display:true,text:'kg/ha',color:tk(),font:{size:9,weight:'700'}} }
+      }
+    }
+  });
+
+  // Table
+  document.getElementById('tbody-fertil').innerHTML = stats.map(s => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:.71rem;color:var(--blue)">${s.eqtr}</td>
+      <td class="m">${s.eq}</td>
+      <td class="m">${s.tr}</td>
+      <td style="font-family:var(--mono);font-weight:700;color:${
+        s.npk==='N'?(DARK_MODE?'#38bdf8':'#0369a1'):
+        s.npk==='P'?(DARK_MODE?'#fb923c':'#ea580c'):
+        (DARK_MODE?'#4ade80':'#15803d')}">${s.npk}</td>
+      <td class="r">${s.prog!=null?s.prog.toFixed(1):'—'}</td>
+      <td class="r">${s.real!=null?s.real.toFixed(1):'—'}</td>
+      <td class="r" style="font-size:.68rem;color:var(--text4)">${s.progAcum!=null?s.progAcum.toFixed(1):'—'} / ${s.realAcum!=null?s.realAcum.toFixed(1):'—'}</td>
+      <td class="r" style="font-weight:600;color:${fCol(s.cumpl)}">${s.cumpl!=null?s.cumpl+'%':'—'}</td>
+      <td style="font-size:.72rem">${fLabel(s.cumpl)}</td>
+      <td class="r" style="font-size:.71rem">${s.ultApl||'—'}</td>
+    </tr>`).join('') || '<tr><td colspan="10" class="empty">Sin datos</td></tr>';
+}
+
+
+// ═══════════════════════════════════════════════
+//  HOJA8 — BIOMETRÍA
+// ═══════════════════════════════════════════════
+function parseBiometria(rows) {
+  // Hoja8 exact columns:
+  // EQ-TR, AID, MF, FD, EQ, TR, PAR, Safra, Area, Fecha, Hora,
+  // Punto de eval. (NAX), N° Tallos tot eval, Mts Lineales tot,
+  // Tallos / ML, Longitud tallo, Diametro tallo,
+  // Longitud entre nudos (cm), N° prom entrenudos,
+  // Peso total, Diámetro inferior, Diámetro medio, Diámetro superior,
+  // Ana, Analisis, Obs
+  if (!rows || !rows.length) return [];
+  const n = v => { const x = parseFloat(v); return isNaN(x) ? null : x; };
+  return rows.map(r => {
+    const fechaDate = parseXLDate(r['Fecha']);
+    const fechaStr  = fechaDate && !isNaN(fechaDate)
+      ? fechaDate.toISOString().slice(0,10)
+      : (r['Fecha'] ? String(r['Fecha']).slice(0,10) : null);
+    return {
+      eqtr:         String(r['EQ-TR'] || '').trim(),
+      eq:           String(r['EQ']    || '').trim(),
+      tr:           String(r['TR']    || '').trim(),
+      fd:           String(r['FD']    || '').trim(),
+      mf:           String(r['MF']    || '').trim(),
+      par:          n(r['PAR']),
+      area:         n(r['Area']),
+      fecha:        fechaStr,
+      // Key biometric metrics
+      tallosEval:   n(r['N° Tallos tot eval']),   // total tallos evaluados
+      mtsLineales:  n(r['Mts Lineales tot']),      // metros lineales
+      tallosMl:     n(r['Tallos / ML']),            // tallos por metro lineal
+      longTallo:    n(r['Longitud tallo']),          // altura cm
+      diamTallo:    n(r['Diametro tallo']),          // diámetro cm
+      longNudos:    n(r['Longitud entre nudos (cm)']),
+      nEntrenudos:  n(r['N° prom entrenudos']),
+      pesoTotal:    n(r['Peso total']),
+      diamInf:      n(r['Diámetro inferior']),
+      diamMed:      n(r['Diámetro medio']),
+      diamSup:      n(r['Diámetro superior']),
+      analisis:     r['Analisis'] ? String(r['Analisis']).trim() : null,
+    };
+  }).filter(r => r.eqtr && r.eqtr !== 'EQ-TR');
+}
+
+function renderBiometria() {
+  const bioKpis = document.getElementById('bio-kpis');
+  if (!BIOMTRIA.length) {
+    if (bioKpis) bioKpis.innerHTML = '<div class="empty" style="grid-column:span 4">No hay datos (Hoja8 no detectada)</div>';
+    return;
+  }
+
+  const selFD   = getSelMS('ms-fd');
+  const selEQ   = getSelMS('ms-eq');
+  const selEQTR = getSelMS('ms-eqtr');
+  const filtered = BIOMTRIA.filter(r => {
+    if (selFD.length   && !selFD.includes(r.fd))     return false;
+    if (selEQ.length   && !selEQ.includes(r.eq))     return false;
+    if (selEQTR.length && !selEQTR.includes(r.eqtr)) return false;
+    return true;
+  });
+
+  if (!filtered.length) {
+    if (bioKpis) bioKpis.innerHTML = '<div class="empty" style="grid-column:span 4">Sin datos para los filtros seleccionados</div>';
+    return;
+  }
+
+  // ── Last evaluation date per EQ-TR ──
+  const lastDateMap = new Map();
+  filtered.forEach(r => {
+    if (!r.fecha) return;
+    const cur = lastDateMap.get(r.eqtr);
+    if (!cur || r.fecha > cur) lastDateMap.set(r.eqtr, r.fecha);
+  });
+  const lastRows = filtered.filter(r => r.fecha && lastDateMap.get(r.eqtr) === r.fecha);
+
+  // ── Aggregate per EQ-TR using last date ──
+  const byEQTR = new Map();
+  lastRows.forEach(r => {
+    if (!byEQTR.has(r.eqtr)) byEQTR.set(r.eqtr, {
+      eqtr:r.eqtr, eq:r.eq, tr:r.tr, fd:r.fd,
+      fecha:r.fecha, analisis:r.analisis,
+      longTallos:[], tallosMls:[], diamTallos:[],
+      longNudos:[], nEntrenudos:[], diamMeds:[], n:0
+    });
+    const g = byEQTR.get(r.eqtr);
+    if (r.longTallo   != null) g.longTallos.push(r.longTallo);
+    if (r.tallosMl    != null) g.tallosMls.push(r.tallosMl);
+    if (r.diamTallo   != null) g.diamTallos.push(r.diamTallo);
+    if (r.longNudos   != null) g.longNudos.push(r.longNudos);
+    if (r.nEntrenudos != null) g.nEntrenudos.push(r.nEntrenudos);
+    if (r.diamMed     != null) g.diamMeds.push(r.diamMed);
+    g.n++;
+  });
+
+  const avg = arr => arr.length ? +(arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(1) : null;
+  const stats = [...byEQTR.values()].map(g => ({
+    ...g,
+    longAvg:   avg(g.longTallos),   // Longitud tallo promedio (cm) = altura
+    tallosAvg: avg(g.tallosMls),    // Tallos / ML promedio
+    diamAvg:   avg(g.diamTallos),   // Diámetro tallo promedio (cm)
+    nudosLong: avg(g.longNudos),    // Longitud entre nudos (cm)
+    nudosN:    avg(g.nEntrenudos),  // N° prom entrenudos
+    diamMedAvg:avg(g.diamMeds),     // Diámetro medio
+  })).sort((a,b)=>a.eqtr.localeCompare(b.eqtr));
+
+  const allLong  = stats.filter(r=>r.longAvg!=null).map(r=>r.longAvg);
+  const globalLong = allLong.length ? avg(allLong) : null;
+  const fechas   = [...new Set(filtered.map(r=>r.fecha).filter(Boolean))].sort();
+  const nEvals   = fechas.length;
+
+  // Color por longitud de tallo (caña adulta >200cm óptimo, joven 100-200, muy joven <100)
+  const ltCol = v => v==null?'var(--text3)':v>=200?(DARK_MODE?'#4ade80':'#15803d'):v>=100?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#f87171':'#b91c1c');
+  const ltLbl = v => v==null?'—':v>=200?'✅ Adulta':v>=100?'🌱 En desarrollo':'⚠️ Muy joven';
+
+  // ── KPIs ──
+  if (bioKpis) bioKpis.innerHTML = `
+    <div class="kpi kc1"><div class="kpi-val">${stats.length}</div><div class="kpi-lbl">EQ-TR evaluados</div></div>
+    <div class="kpi kc2"><div class="kpi-val" style="color:${ltCol(globalLong)}">${globalLong!=null?globalLong+' cm':'—'}</div><div class="kpi-lbl">Long. tallo prom.</div></div>
+    <div class="kpi kc5"><div class="kpi-val">${nEvals}</div><div class="kpi-lbl">Fechas de evaluación</div></div>
+    <div class="kpi kc3"><div class="kpi-val" style="color:${DARK_MODE?'#c084fc':'#7e22ce'}">${(stats.filter(r=>r.tallosAvg!=null).reduce((a,r)=>a+r.tallosAvg,0)/(stats.filter(r=>r.tallosAvg!=null).length||1)).toFixed(1)}</div><div class="kpi-lbl">Tallos/ML promedio</div></div>
+    <div class="kpi kc4"><div class="kpi-val" style="color:${DARK_MODE?'#38bdf8':'#0369a1'}">${(stats.filter(r=>r.diamAvg!=null).reduce((a,r)=>a+r.diamAvg,0)/(stats.filter(r=>r.diamAvg!=null).length||1)).toFixed(2)}</div><div class="kpi-lbl">Diámetro prom. (cm)</div></div>
+  `;
+
+  // ── Chart 1: Longitud tallo por EQ-TR (último eval) ──
+  dc('ch-bio-altura');
+  const sortedLong = [...stats].filter(r=>r.longAvg!=null).sort((a,b)=>b.longAvg-a.longAvg);
+  charts['ch-bio-altura'] = new Chart(document.getElementById('ch-bio-altura').getContext('2d'), {
+    type:'bar',
+    data:{ labels:sortedLong.map(r=>r.eqtr), datasets:[{
+      label:'Long. tallo prom. (cm)',
+      data:sortedLong.map(r=>r.longAvg),
+      backgroundColor:sortedLong.map(r=>ltCol(r.longAvg)),
+      borderRadius:3, barPercentage:.75
+    }]},
+    options:{ ...getCD(),
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx => ` ${ctx.parsed.y} cm · ${ltLbl(ctx.parsed.y)}` }}},
+      scales:{
+        x:{ ticks:{color:tk(),font:{size:8},maxRotation:45}, grid:{color:gc()} },
+        y:{ ticks:{color:tk(),font:{size:9},callback:v=>v+' cm'}, grid:{color:gc()},
+            min: allLong.length ? Math.max(0,Math.floor((Math.min(...allLong)-20)/20)*20) : 0,
+            title:{display:true,text:'Longitud tallo (cm)',color:tk(),font:{size:9,weight:'700'}} }
+      }
+    }
+  });
+
+  // ── Chart 2: Distribución por rango de longitud (donut) ──
+  dc('ch-bio-dist');
+  const distBio = [
+    {l:'Muy joven (<100cm)', mn:0,   mx:100, c:DARK_MODE?'#f87171':'#b91c1c'},
+    {l:'En desarrollo (100–199cm)',mn:100,mx:200,c:DARK_MODE?'#fbbf24':'#b45309'},
+    {l:'Adulta (≥200cm)',    mn:200, mx:9999,c:DARK_MODE?'#4ade80':'#15803d'},
+  ];
+  const allLongs2 = filtered.map(r=>r.longTallo).filter(v=>v!=null);
+  const bioCounts = distBio.map(b=>allLongs2.filter(v=>v>=b.mn&&v<b.mx).length);
+  charts['ch-bio-dist'] = new Chart(document.getElementById('ch-bio-dist').getContext('2d'), {
+    type:'doughnut',
+    data:{ labels:distBio.map(b=>b.l), datasets:[{
+      data:bioCounts,
+      backgroundColor:distBio.map(b=>b.c+'cc'),
+      borderColor:distBio.map(b=>b.c), borderWidth:2, hoverOffset:5
+    }]},
+    options:{ responsive:true, animation:false, cutout:'55%',
+      plugins:{ legend:{ position:'bottom', labels:{ color:tk(), font:{size:9,weight:'500'}, boxWidth:10, padding:6,
+        generateLabels: ch => ch.data.labels.map((l,i)=>({
+          text:`${l}  (${bioCounts[i]})`, fillStyle:distBio[i].c+'cc',
+          strokeStyle:distBio[i].c, lineWidth:2, index:i
+        }))
+      }}}}
+  });
+
+  // ── Chart 3: Evolución longitud tallo por fecha ──
+  dc('ch-bio-evol');
+  const byFechaKey = new Map();
+  filtered.forEach(r => {
+    if (!r.fecha || r.longTallo==null) return;
+    const key = r.eqtr+'|'+r.fecha;
+    if (!byFechaKey.has(key)) byFechaKey.set(key,[]);
+    byFechaKey.get(key).push(r.longTallo);
+  });
+  const top6bio = stats.filter(r=>r.longAvg!=null).slice(0,6);
+  charts['ch-bio-evol'] = new Chart(document.getElementById('ch-bio-evol').getContext('2d'), {
+    type:'line',
+    data:{ labels:fechas, datasets:top6bio.map((r,i)=>({
+      label:r.eqtr, borderColor:getP(i), backgroundColor:'transparent',
+      borderWidth:2, pointRadius:3.5, tension:.3, spanGaps:true,
+      data:fechas.map(f=>{
+        const vs=byFechaKey.get(r.eqtr+'|'+f)||[];
+        return vs.length?+(vs.reduce((a,b)=>a+b,0)/vs.length).toFixed(1):null;
+      })
+    }))},
+    options:{ ...getCD(),
+      plugins:{ legend:{ labels:{ color:tk(), font:{size:9,weight:'500'}, boxWidth:9 }}},
+      scales:{
+        x:{ ticks:{color:tk(),font:{size:9}}, grid:{color:gc()} },
+        y:{ ticks:{color:tk(),font:{size:9},callback:v=>v+' cm'}, grid:{color:gc()},
+            title:{display:true,text:'Longitud tallo (cm)',color:tk(),font:{size:9,weight:'700'}} }
+      }
+    }
+  });
+
+  // ── Chart 4: Tallos/ML por EQ-TR ──
+  dc('ch-bio-tallos');
+  const sortedTal = [...stats].filter(r=>r.tallosAvg!=null).sort((a,b)=>b.tallosAvg-a.tallosAvg);
+  charts['ch-bio-tallos'] = new Chart(document.getElementById('ch-bio-tallos').getContext('2d'), {
+    type:'bar',
+    data:{ labels:sortedTal.map(r=>r.eqtr), datasets:[{
+      label:'Tallos/ML',
+      data:sortedTal.map(r=>r.tallosAvg),
+      backgroundColor:sortedTal.map(r=>r.tallosAvg>=15?(DARK_MODE?'#4ade80':'#15803d'):r.tallosAvg>=12?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#f87171':'#b91c1c')),
+      borderRadius:3, barPercentage:.75
+    }]},
+    options:{ ...getCD(),
+      plugins:{ legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx => ` ${ctx.parsed.y.toFixed(1)} tallos/ML` }}},
+      scales:{
+        x:{ ticks:{color:tk(),font:{size:8},maxRotation:45}, grid:{color:gc()} },
+        y:{ ticks:{color:tk(),font:{size:9}}, grid:{color:gc()},
+            title:{display:true,text:'Tallos / ML',color:tk(),font:{size:9,weight:'700'}},
+            min: Math.max(0, Math.floor((Math.min(...sortedTal.map(r=>r.tallosAvg||0))-2)/2)*2) }
+      }
+    }
+  });
+
+  // ── Table ──
+  document.getElementById('tbody-biometria').innerHTML = stats.map(r=>`
+    <tr>
+      <td style="font-family:var(--mono);font-size:.71rem;color:var(--blue)">${r.eqtr}</td>
+      <td class="m">${r.eq}</td><td class="m">${r.tr}</td>
+      <td class="m" style="font-size:.71rem">${r.fecha||'—'}</td>
+      <td class="r">${r.n}</td>
+      <td class="r" style="font-weight:600;color:${ltCol(r.longAvg)}">${r.longAvg!=null?r.longAvg+' cm':'—'}</td>
+      <td class="r">${r.tallosAvg!=null?r.tallosAvg.toFixed(1):'—'}</td>
+      <td class="r">${r.diamAvg!=null?r.diamAvg.toFixed(2)+' cm':'—'}</td>
+      <td style="font-size:.71rem">${ltLbl(r.longAvg)}</td>
+    </tr>`).join('')||'<tr><td colspan="9" class="empty">Sin datos</td></tr>';
 }
 
 </script>
