@@ -6420,44 +6420,27 @@ const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 const supabaseRead  = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const supabaseWrite = supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-// ── CACHE LOCAL (IndexedDB — sin límite de tamaño) ──────────
-const IDB_NAME = 'riego_cache_db';
-const IDB_STORE = 'cache';
-
-function abrirIDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(IDB_NAME, 1);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
-    req.onsuccess = e => resolve(e.target.result);
-    req.onerror   = e => reject(e.target.error);
-  });
-}
-
+// ── CACHE LOCAL (usa el IndexedDB existente de la app) ──────
 async function guardarCacheLocal(datos) {
   try {
-    const db = await abrirIDB();
-    const tx = db.transaction(IDB_STORE, 'readwrite');
-    const st = tx.objectStore(IDB_STORE);
-    st.put(datos, 'datos');
-    st.put(new Date().toISOString(), 'timestamp');
-    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
-    console.log('[Cache] Guardado en IndexedDB OK');
-  } catch(e) { console.warn('[Cache] Error IndexedDB:', e.message); }
+    await saveFileToIDB(
+      new TextEncoder().encode(JSON.stringify(datos)).buffer,
+      '__supabase_cache__'
+    );
+    localStorage.setItem('riego_cache_ts', new Date().toISOString());
+    console.log('[Cache] Guardado OK');
+  } catch(e) {
+    console.warn('[Cache] Error guardando:', e.message);
+  }
 }
 
 async function leerCacheLocal() {
   try {
-    const db = await abrirIDB();
-    const tx = db.transaction(IDB_STORE, 'readonly');
-    const st = tx.objectStore(IDB_STORE);
-    const datos = await new Promise((res, rej) => {
-      const r = st.get('datos'); r.onsuccess = () => res(r.result); r.onerror = rej;
-    });
-    const timestamp = await new Promise((res, rej) => {
-      const r = st.get('timestamp'); r.onsuccess = () => res(r.result); r.onerror = rej;
-    });
-    if (!datos) return null;
-    return { datos, timestamp };
+    const ts = localStorage.getItem('riego_cache_ts');
+    const cached = await loadFileFromIDB();
+    if (!cached || cached.name !== '__supabase_cache__') return null;
+    const texto = new TextDecoder().decode(cached.buffer);
+    return { datos: JSON.parse(texto), timestamp: ts };
   } catch(e) { return null; }
 }
 
