@@ -6447,6 +6447,18 @@ async function leerCacheLocal() {
 // ── MAPEO DE DATOS ───────────────────────────────────────────
 
 
+// Convierte fecha a ISO string de forma segura
+function fechaSegura(val) {
+  if (!val) return null;
+  try {
+    const d = new Date(val);
+    if (isNaN(d.getTime())) return null;
+    const y = d.getFullYear();
+    if (y < 1900 || y > 2100) return null;
+    return d.toISOString().split('T')[0];
+  } catch(e) { return null; }
+}
+
 // Limpia valores numéricos que vienen con comas, espacios o caracteres raros
 function limpiarNumero(val) {
   if (val === null || val === undefined || val === '') return null;
@@ -6494,7 +6506,7 @@ function mapearRiego(f) {
     semana: f['semana']||null, eq_tr: f['EQ-TR'], mf: f['MF']||null,
     fd: f['FD']||null, eq: f['EQ']||null, tr: f['TR']||null,
     par: f['PAR']||null, safra: f['Safra']||null, area: f['Area']||null,
-    fecha: f['Fecha'] ? new Date(f['Fecha']).toISOString().split('T')[0] : null,
+    fecha: fechaSegura(f['Fecha']),
     hora: extraerHora(f['Hora']),
     vol_planificado_m3: f['VOLUMEN DE RIEGO PLANIFICADO (M3)']||null,
     vol_programado_m3:  f['VOLUMEN DE RIEGO PROGRAMADO (M3)']||null,
@@ -6529,12 +6541,12 @@ function mapearHumedad(f) {
     aid: parseInt(f['AID']), eq_tr: f['EQ-TR'], mf: f['MF']||null,
     fd: f['FD']||null, eq: f['EQ']||null, tr: f['TR']||null,
     par: String(f['PAR']||''), safra: f['Safra']||null, area: f['Area']||null,
-    fecha: f['Fecha'] ? new Date(f['Fecha']).toISOString().split('T')[0] : null,
+    fecha: fechaSegura(f['Fecha']),
     hora: extraerHora(f['Hora']),
     contenido_humedad_pct: f['Contenido de humedad (%)']||null,
     temperatura_c: f['Temperatura (\u00b0C)']||null, ce_ms_cm: f['CE (ms/cm)']||null,
     spad: f['Spad (\u00b0)']||null,
-    fecha_ultimo_riego: f['Fecha \u00faltimo riego'] ? new Date(f['Fecha \u00faltimo riego']).toISOString().split('T')[0] : null,
+    fecha_ultimo_riego: fechaSegura(f['Fecha \u00faltimo riego']),
     hora_ultimo_riego_inicio: extraerHora(f['Hora \u00faltimo_riego_Inicio']),
     hora_ultimo_riego_fin: extraerHora(f['Hora \u00faltimo_riego_Fin']),
     evaluador: f['Evaluador']||null, ana: f['Ana']||null,
@@ -6547,7 +6559,7 @@ function mapearBiometria(f) {
     aid: parseInt(f['AID']), eq_tr: f['EQ-TR'], mf: f['MF']||null,
     fd: f['FD']||null, eq: f['EQ']||null, tr: f['TR']||null,
     par: String(f['PAR']||''), safra: f['Safra']||null, area: f['Area']||null,
-    fecha: f['Fecha'] ? new Date(f['Fecha']).toISOString().split('T')[0] : null,
+    fecha: fechaSegura(f['Fecha']),
     hora: extraerHora(f['Hora']),
     punto_eval_nax: f['Punto de eval. (NAX)']||null,
     n_tallos_tot_eval: limpiarEntero(f['N\u00b0 Tallos tot eval']),
@@ -6567,10 +6579,10 @@ function mapearCosecha(f) {
   return {
     eq_tr: f['EQ-TR'], anio_cosecha: f['A\u00f1o cosecha']||null,
     mes_cosecha: String(f['Mes cosecha']||''), mf: f['MF']||null,
-    fcosecha: f['FCosecha'] ? new Date(f['FCosecha']).toISOString().split('T')[0] : null,
+    fcosecha: fechaSegura(f['FCosecha']),
     fd: f['FD']||null, eq: f['EQ']||null, tr: f['TR']||null,
     safra: f['Safra']||null, estado: f['Estado']||null, var: f['Var']||null,
-    fcultivo: f['FCultivo'] ? new Date(f['FCultivo']).toISOString().split('T')[0] : null,
+    fcultivo: fechaSegura(f['FCultivo']),
     tn: limpiarNumero(f['Tn.']),
     area: limpiarNumero(f['Area.']),
     edad_dias: limpiarNumero(f['Edad (d\u00edas)']),
@@ -6620,7 +6632,7 @@ function mapearFertilizacion(f) {
   return {
     eq_tr: f['EQ-TR'], fd: f['FD']||null, eq: f['EQ']||null, tr: f['TR']||null,
     fd_eq_tr: f['FD-EQ-TR']||null, clase: f['Clase']||null,
-    ult_aplicacion: f['Ult. Aplicaci\u00f3n'] ? new Date(f['Ult. Aplicaci\u00f3n']).toISOString().split('T')[0] : null,
+    ult_aplicacion: fechaSegura(f['Ult. Aplicaci\u00f3n']),
     npk: f['NPK']||null,
     und_total: f['Und. \nTotal']||null, und_acum: f['Und. \nAcum.']||null,
     semanas,
@@ -6633,9 +6645,9 @@ function mapearInfoParcelas(f) {
     eq: f['EQ'], id_parcela: f['ID']||null, tabela: f['TABELA']||null,
     mf: f['MF']||null, fd: f['FD']||null, tr: f['TR'],
     par: f['PAR']||null, safra: f['Safra']||null,
-    fcultivo: f['FCultivo'] ? new Date(f['FCultivo']).toISOString().split('T')[0] : null,
-    fagoste: f['FAgoste'] ? new Date(f['FAgoste']).toISOString().split('T')[0] : null,
-    fcosecha: f['FCosecha'] ? new Date(f['FCosecha']).toISOString().split('T')[0] : null,
+    fcultivo: fechaSegura(f['FCultivo']),
+    fagoste: fechaSegura(f['FAgoste']),
+    fcosecha: fechaSegura(f['FCosecha']),
     t_ha: f['T/ha']||null, thm: f['THM']||null, area: f['Area']||null,
     var: f['Var']||null, est: f['Est']||null, pcostos: f['PCostos']||null,
     pf: f['PF']||null, pfertilizacion: f['PFertilizacion']||null,
@@ -6855,16 +6867,21 @@ async function cargarDatosDesdeSupabase() {
 
     for (const tabla of tablas) {
       if (msgEl) msgEl.textContent = 'Descargando ' + tabla + '...';
-      let todos = [], desde = 0;
-      while (true) {
-        const { data, error } = await supabaseRead
-          .from(tabla).select('*').range(desde, desde + 999);
-        if (error) throw error;
-        todos = todos.concat(data || []);
-        if (!data || data.length < 1000) break;
-        desde += 1000;
+      try {
+        let todos = [], desde = 0;
+        while (true) {
+          const { data, error } = await supabaseRead
+            .from(tabla).select('*').range(desde, desde + 999);
+          if (error) { console.warn('[Descarga] Error en ' + tabla + ':', error.message); break; }
+          todos = todos.concat(data || []);
+          if (!data || data.length < 1000) break;
+          desde += 1000;
+        }
+        datos[tabla] = todos;
+      } catch(e) {
+        console.warn('[Descarga] Excepción en ' + tabla + ':', e.message);
+        datos[tabla] = [];
       }
-      datos[tabla] = todos;
       i++;
     }
 
@@ -6892,6 +6909,7 @@ async function cargarDatosDesdeSupabase() {
 }
 
 function alimentarDashboard(datos) {
+  if (!datos) { console.error('[Dashboard] datos es undefined'); mostrarLogin(); return; }
   // Mapear datos de Supabase a las variables globales de la app
   if (datos.riego && datos.riego.length) {
     RAW = datos.riego.map(r => ({
