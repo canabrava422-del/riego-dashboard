@@ -4405,10 +4405,10 @@ function processArrayBuffer(arrayBuffer, fileName) {
             Hoja1: XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval:null, raw:true }),
             Hoja2: json2,
             Hoja3: wb.SheetNames.length > 2 ? XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[2]], { defval:null, raw:true }) : [],
-            Hoja4: wb.SheetNames.length > 3 ? XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[3]], { defval:null, raw:true, header:1 }) : [],
+            Hoja4: wb.SheetNames.length > 3 ? XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[3]], { defval:null, raw:true }) : [],
             Hoja5: wb.SheetNames.length > 4 ? XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[4]], { defval:null, raw:false }) : [],
             Hoja6: wb.SheetNames.length > 5 ? XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[5]], { defval:null, raw:false }) : [],
-            Hoja7: wb.SheetNames.length > 6 ? XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[6]], { defval:null, raw:true, header:1 }) : [],
+            Hoja7: wb.SheetNames.length > 6 ? XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[6]], { defval:null, raw:true }) : [],
             Hoja8: wb.SheetNames.length > 7 ? XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[7]], { defval:null, raw:false }) : [],
           };
           Object.keys(MS).forEach(k => { MS[k].sel = new Set(); });
@@ -6601,10 +6601,11 @@ function mapearProgramaRiego(f) {
 }
 function mapearCaudales(f) {
   if (!f['EQ-TR']) return null;
+  // Recoger todas las semanas (columnas numéricas 1-52)
   const semanas = {};
-  [1,2,3,4,18,19,20,21,22,23,24,25,26,27,28,29,30,31].forEach(s => {
-    if (f[s] != null) semanas[s] = f[s];
-  });
+  for (let s = 1; s <= 52; s++) {
+    if (f[s] != null && f[s] !== '') semanas[s] = f[s];
+  }
   return {
     eq_tr: f['EQ-TR'], mf: f['MF']||null, fd: f['FD']||null,
     eq: f['EQ']||null, tr: f['TR']||null, safra: f['Safra']||null,
