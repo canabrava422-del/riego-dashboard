@@ -2736,6 +2736,15 @@ function updateKPIs(data) {
 // ═══════════════════════════════════════════════
 //  RESUMEN
 // ═══════════════════════════════════════════════
+
+// Devuelve el label EQ-TR para mostrar en los cuadros de resumen
+function eqtrLabel(lista) {
+  const unicos = [...new Set(lista.map(r => r.eqtr || r['EQ-TR'] || '').filter(Boolean))];
+  if (unicos.length === 0) return '—';
+  if (unicos.length === 1) return unicos[0];
+  return 'Varios (' + unicos.length + ')';
+}
+
 function renderResumen(data) {
   dc('pvr');
   const sems=[...new Set(data.map(r=>r.semana))].sort((a,b)=>a-b);
@@ -4835,7 +4844,7 @@ function renderResumenSummaries(riegoData) {
       const fCulMax  = ig.map(r=>r.fCultivo).filter(Boolean).sort().pop();
       igEl.innerHTML = `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .7rem;font-size:.75rem">
-          <div><span style="color:var(--text3)">EQ-TR:</span> <b>${ig.length}</b></div>
+          <div><span style="color:var(--text3)">EQ-TR:</span> <b style="color:var(--blue)">${eqtrLabel(ig)}</b></div>
           <div><span style="color:var(--text3)">Edad prom:</span> <b style="color:var(--blue)">${isNaN(avgEdad)?'—':Math.round(avgEdad)+' d'}</b></div>
           <div><span style="color:var(--text3)">F.Cultivo:</span> <b>${fCulMin||'—'}</b></div>
           <div><span style="color:var(--text3)">hasta:</span> <b>${fCulMax||'—'}</b></div>
@@ -4884,6 +4893,7 @@ function renderResumenSummaries(riegoData) {
 
       cosEl.innerHTML = `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .7rem;font-size:.75rem">
+          <div><span style="color:var(--text3)">EQ-TR:</span> <b style="color:var(--blue)">${eqtrLabel(ig)}</b></div>
           <div><span style="color:var(--text3)">Próx. cosecha:</span> <b style="color:var(--green)">${nextCosecha?(nextCosecha.fCosechaStr||nextCosecha.fCosecha||'—'):'—'}</b></div>
           <div><span style="color:var(--text3)">EQ-TR:</span> <b>${nextCosecha?nextCosecha.eqtr:'—'}</b></div>
           <div><span style="color:var(--text3)">F.Agoste:</span> <b style="color:var(--amber)">${nextAgoste?nextAgoste._fAgosteCalc:'—'}</b></div>
@@ -4915,6 +4925,10 @@ function renderResumenSummaries(riegoData) {
       const avgT   = prog.filter(r=>r.tRiego!=null).reduce((s,r)=>s+r.tRiego,0) / (prog.filter(r=>r.tRiego!=null).length||1);
       progEl.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:.35rem;font-size:.75rem">
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">EQ-TR</span>
+            <b style="color:var(--blue)">${eqtrLabel(prog)}</b>
+          </div>
           <div style="display:flex;justify-content:space-between">
             <span style="color:var(--text3)">Kc promedio</span>
             <b style="color:var(--blue)">${isNaN(avgKc)?'—':avgKc.toFixed(2)}</b>
@@ -4955,6 +4969,10 @@ function renderResumenSummaries(riegoData) {
       const humCol = v => v==null?'var(--text3)':v>=20&&v<=28?'var(--green)':v<20?'var(--amber)':'var(--blue)';
       humEl.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:.35rem;font-size:.75rem">
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">EQ-TR</span>
+            <b style="color:var(--blue)">${eqtrLabel(hum)}</b>
+          </div>
           <div style="display:flex;justify-content:space-between">
             <span style="color:var(--text3)">Humedad promedio</span>
             <b style="color:${humCol(avgHum)}">${avgHum!=null?avgHum+'%':'—'}</b>
@@ -4999,6 +5017,10 @@ function renderResumenSummaries(riegoData) {
       const cCol = v => v==null?'var(--text3)':v>10?'var(--blue)':v>=-10?'var(--green)':v>=-20?'var(--amber)':'var(--red)';
       cauKpiEl.innerHTML = `
         <div style="display:flex;flex-direction:column;gap:.35rem;font-size:.75rem">
+          <div style="display:flex;justify-content:space-between">
+            <span style="color:var(--text3)">EQ-TR</span>
+            <b style="color:var(--blue)">${eqtrLabel(caud)}</b>
+          </div>
           <div style="display:flex;justify-content:space-between">
             <span style="color:var(--text3)">Prom. 3 días</span>
             <b style="color:${cCol(globalAvg)}">${globalAvg!=null?globalAvg+'%':'—'}</b>
@@ -5108,7 +5130,7 @@ function renderResumenSummaries(riegoData) {
       const fechasUniq=[...new Set(filt.map(r=>r.fecha).filter(Boolean))].sort();
       const lastFecha=fechasUniq[fechasUniq.length-1]||'—';
       bioEl.innerHTML=`<div style="display:flex;flex-direction:column;gap:.35rem;font-size:.75rem">
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">EQ-TR evaluados</span><b>${nEQ}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">EQ-TR</span><b style="color:var(--blue)">${eqtrLabel(filt)}</b></div>
         <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Última evaluación</span><b style="color:var(--blue)">${lastFecha}</b></div>
         <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Long. tallo prom.</span><b style="color:${ltCol(avgAlt)}">${avgAlt!=null?avgAlt+' cm':'—'}</b></div>
         <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">Tallos/ML prom.</span><b style="color:${DARK_MODE?'#c084fc':'#7e22ce'}">${avgTallos!=null?avgTallos:'—'}</b></div>
@@ -5342,7 +5364,7 @@ function renderFertil() {
   const totalPend = totalProg - totalReal;
   const nEQTR = [...new Set(stats.map(s=>s.eqtr))].size;
   document.getElementById('fert-kpis').innerHTML = `
-    <div class="kpi kc1"><div class="kpi-val">${nEQTR}</div><div class="kpi-lbl">EQ-TR con fertilización</div></div>
+    <div class="kpi kc1"><div class="kpi-val" style="color:var(--blue);font-size:.85rem">${eqtrLabel(filt)}</div><div class="kpi-lbl">EQ-TR</div></div>
     <div class="kpi kc2"><div class="kpi-val" style="color:${fCol(avgCumpl)}">${avgCumpl!=null?avgCumpl+'%':'—'}</div><div class="kpi-lbl">% Avance promedio (${npkLabel})</div></div>
     <div class="kpi kc5"><div class="kpi-val" style="color:${DARK_MODE?'#4ade80':'#15803d'}">${nComplete}</div><div class="kpi-lbl">EQ-TR completados</div></div>
     <div class="kpi kc4"><div class="kpi-val" style="color:${DARK_MODE?'#fbbf24':'#b45309'}">${nPending}</div><div class="kpi-lbl">EQ-TR con pendiente</div></div>
