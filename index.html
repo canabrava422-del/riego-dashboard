@@ -6972,9 +6972,53 @@ function alimentarDashboard(datos) {
   if (datos.biometria)     BIOMTRIA = datos.biometria;
   if (datos.fertilizacion) FERTIL   = datos.fertilizacion;
   if (datos.info_parcelas) INFOGENS = datos.info_parcelas;
-  if (datos.cosecha)       HARVEST  = datos.cosecha;
   if (datos.programa_riego) PROGRAMA = datos.programa_riego;
-  if (datos.caudales)      CAUDALES = datos.caudales;
+
+  // Cosecha — transformar al formato que espera parseHarvest
+  if (datos.cosecha && datos.cosecha.length) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    HARVEST = datos.cosecha.map(r => {
+      const fCosecha   = r.fcosecha   ? new Date(r.fcosecha)   : null;
+      const agosteFecha = r.fagoste   ? new Date(r.fagoste)    : null;
+      const agosteStr  = agosteFecha  ? agosteFecha.toISOString().slice(0,10) : (r.agoste||null);
+      let diasAgoste = null;
+      if (agosteFecha && !isNaN(agosteFecha)) {
+        agosteFecha.setHours(0,0,0,0);
+        diasAgoste = Math.ceil((agosteFecha - today) / 86400000);
+      }
+      return {
+        eqtr:        (r.eq_tr||'').toString().trim(),
+        eq:          (r.eq||'').toString().trim(),
+        fd:          (r.fd||'').toString().trim(),
+        mesCosecha:  r.mes_cosecha != null ? +r.mes_cosecha : null,
+        fCosecha,
+        fCosechaStr: fCosecha ? fCosecha.toISOString().slice(0,10) : null,
+        agosteStr,
+        agosteFecha,
+        diasAgoste,
+        tn:          r.tn, area: r.area, tn_ha: r.tn_ha,
+        estado:      r.estado, var: r.var,
+      };
+    }).filter(r => r.eqtr);
+  }
+
+  // Caudales — transformar al formato que espera parseCaudales (desvs, avg3)
+  if (datos.caudales && datos.caudales.length) {
+    CAUDALES = datos.caudales.map(r => {
+      const semanas = r.semanas || {};
+      const desvs = Object.entries(semanas)
+        .filter(([,v]) => v != null && !isNaN(parseFloat(v)))
+        .map(([k, v]) => ({ label: 'Sem ' + k, val: parseFloat(v), dayVal: +k, mo: null, yr: null }));
+      const last3 = desvs.slice(0, 3);
+      const avg3  = last3.length ? +(last3.reduce((a,d) => a + d.val, 0) / last3.length).toFixed(1) : null;
+      return {
+        eqtr:   (r.eq_tr||'').toString().trim(),
+        mf:     r.mf||'', fd: r.fd||'', eq: r.eq||'', tr: r.tr||'',
+        area:   r.area, caudal: r.caudal_diseno,
+        desvs, last3, avg3, weekCols: [],
+      };
+    }).filter(r => r.eqtr);
+  }
 
   // Mostrar dashboard
   document.getElementById('upload-screen').style.display = 'none';
