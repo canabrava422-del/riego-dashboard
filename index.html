@@ -6438,6 +6438,24 @@ function leerCacheLocal() {
 
 // ── MAPEO DE DATOS ───────────────────────────────────────────
 
+
+// Limpia valores numéricos que vienen con comas, espacios o caracteres raros
+function limpiarNumero(val) {
+  if (val === null || val === undefined || val === '') return null;
+  if (typeof val === 'number') return val;
+  // Convertir a string y limpiar
+  const s = String(val).trim().replace(/[^0-9.\-]/g, '');
+  if (s === '' || s === '-') return null;
+  const n = parseFloat(s);
+  return isNaN(n) ? null : n;
+}
+
+// Limpia enteros
+function limpiarEntero(val) {
+  const n = limpiarNumero(val);
+  return n === null ? null : Math.round(n);
+}
+
 // Extrae HH:MM:SS de un valor de hora que viene de Excel
 function extraerHora(val) {
   if (!val) return null;
@@ -6524,9 +6542,11 @@ function mapearBiometria(f) {
     fecha: f['Fecha'] ? new Date(f['Fecha']).toISOString().split('T')[0] : null,
     hora: extraerHora(f['Hora']),
     punto_eval_nax: f['Punto de eval. (NAX)']||null,
-    n_tallos_tot_eval: f['N\u00b0 Tallos tot eval']||null,
-    mts_lineales_tot: f['Mts Lineales tot']||null, tallos_ml: f['Tallos / ML']||null,
-    longitud_tallo: f['Longitud tallo']||null, diametro_tallo: f['Diametro tallo']||null,
+    n_tallos_tot_eval: limpiarEntero(f['N\u00b0 Tallos tot eval']),
+    mts_lineales_tot: limpiarEntero(f['Mts Lineales tot']),
+    tallos_ml: limpiarNumero(f['Tallos / ML']),
+    longitud_tallo: limpiarEntero(f['Longitud tallo']),
+    diametro_tallo: limpiarNumero(f['Diametro tallo']),
     long_entre_nudos_cm: f['Longitud entre nudos (cm)']||null,
     n_prom_entrenudos: f['N\u00b0 prom entrenudos']||null, peso_total: f['Peso total']||null,
     diametro_inferior: f['Di\u00e1metro inferior']||null, diametro_medio: f['Di\u00e1metro medio']||null,
@@ -6543,11 +6563,15 @@ function mapearCosecha(f) {
     fd: f['FD']||null, eq: f['EQ']||null, tr: f['TR']||null,
     safra: f['Safra']||null, estado: f['Estado']||null, var: f['Var']||null,
     fcultivo: f['FCultivo'] ? new Date(f['FCultivo']).toISOString().split('T')[0] : null,
-    tn: f['Tn.']||null, area: f['Area.']||null,
-    edad_dias: f['Edad (d\u00edas)']||null, edad_mes: f['Edad (mes)']||null,
-    tn_ha: f['Tn/Ha.']||null, tn_ha_mes: f['Tn/Ha/Mes.']||null,
-    tn_ha_anio: f['Tn/Ha/A\u00f1o.']||null, pct_art: f['%ART.']||null,
-    kg_azucar_ha_anio: f['KgAzucar/ha/A\u00f1o.']||null,
+    tn: limpiarNumero(f['Tn.']),
+    area: limpiarNumero(f['Area.']),
+    edad_dias: limpiarNumero(f['Edad (d\u00edas)']),
+    edad_mes: limpiarNumero(f['Edad (mes)']),
+    tn_ha: limpiarNumero(f['Tn/Ha.']),
+    tn_ha_mes: limpiarNumero(f['Tn/Ha/Mes.']),
+    tn_ha_anio: limpiarNumero(f['Tn/Ha/A\u00f1o.']),
+    pct_art: limpiarNumero(f['%ART.']),
+    kg_azucar_ha_anio: limpiarNumero(f['KgAzucar/ha/A\u00f1o.']),
     agoste: f['Agoste'] ? String(f['Agoste']) : null,
   };
 }
