@@ -1691,8 +1691,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <table class="tbl">
               <thead><tr>
                 <th>EQ-TR</th><th>EQ</th><th>FD</th>
-                <th class="r">Mes Cosecha</th><th>FCosecha</th><th>Agoste</th>
-                <th class="r">Días riego restantes</th>
+                <th class="r">Mes Cosecha</th><th>FCosecha</th><th>F.Agoste</th>
+                <th class="r">Días rest. riego</th>
                 <th class="r">Vol. Prog. (m³)</th><th class="r">Vol. Real. (m³)</th>
                 <th>% Cumpl.</th><th>Estado</th>
               </tr></thead>
@@ -3208,18 +3208,19 @@ function renderCosecha(data) {
     <div class="kpi kc1"><div class="kpi-lbl">EQ-TR cosecha</div>
       <div class="kpi-val" style="color:var(--blue)">${totalCosechas}</div>
       <div class="kpi-sub">registros hoja2</div></div>
-    <div class="kpi kc2"><div class="kpi-lbl">Con fecha agoste</div>
+    <div class="kpi kc2"><div class="kpi-lbl">Con F.Agoste</div>
       <div class="kpi-val" style="color:var(--green)">${conAgoste}</div>
       <div class="kpi-sub">tienen fecha definida</div></div>
-    <div class="kpi kc3"><div class="kpi-lbl">Agoste pendiente</div>
-      <div class="kpi-val" style="color:var(--amber)">${pendientes}</div>
-      <div class="kpi-sub">días > 0</div></div>
-    <div class="kpi kc4"><div class="kpi-lbl">Agoste vencido</div>
-      <div class="kpi-val" style="color:var(--red)">${vencidos}</div>
-      <div class="kpi-sub">días ≤ 0</div></div>
-    <div class="kpi kc5"><div class="kpi-lbl">Días prom. a agoste</div>
+    <div class="kpi kc3"><div class="kpi-lbl">Situación</div>
+      <div class="kpi-val" style="color:var(--amber);font-size:.85rem">
+        <span style="color:var(--green)">${pendientes} Regando</span>
+        &nbsp;/&nbsp;
+        <span style="color:var(--red)">${vencidos} Agoste</span>
+      </div>
+      <div class="kpi-sub">estado actual</div></div>
+    <div class="kpi kc4"><div class="kpi-lbl">Días prom. a agoste</div>
       <div class="kpi-val" style="color:var(--violet)">${avgDias !== null ? avgDias : '—'}</div>
-      <div class="kpi-sub">promedio</div></div>`;
+      <div class="kpi-sub">promedio pendientes</div></div>`;
 
   // ── Chart: % cumplimiento por mes de cosecha ──
   dc('ch-cos-mes');
@@ -3374,7 +3375,7 @@ function renderCosecha(data) {
         d === null
           ? 'Sin fecha'
           : d <= 0
-            ? 'Agostado'
+            ? 'Agoste'
             : d === 1
               ? 'Falta 1 día'
               : `Faltan ${d} días`
@@ -3834,7 +3835,7 @@ async function loadFromSheets(isAutoRefresh) {
     if (wb.SheetNames.length > 1) {
       try {
         const sheet2 = wb.Sheets[wb.SheetNames[1]];
-        const raw2 = XLSX.utils.sheet_to_json(sheet2, { defval: null, header: 1, raw: false });
+        const raw2 = XLSX.utils.sheet_to_json(sheet2, { defval: null, header: 1, raw: true });
         let hdrIdx = -1;
         for (let i = 0; i < Math.min(10, raw2.length); i++) {
           if (raw2[i] && raw2[i].some(c => c === 'EQ-TR')) { hdrIdx = i; break; }
@@ -4847,34 +4848,49 @@ function renderResumenSummaries(riegoData) {
   // ── COSECHA ──
   const cosEl = document.getElementById('res-cosecha');
   if (cosEl) {
-    // Use INFOGENS (Hoja5) which has FAgoste and FCosecha
-    if (!INFOGENS.length) {
+    // Usar HARVEST (Hoja2) para agoste — tiene fechas más completas que Hoja5
+    const srcCosecha = HARVEST.length ? HARVEST : INFOGENS;
+    if (!srcCosecha.length) {
       cosEl.innerHTML = '<span style="color:var(--text4)">Sin datos de cosecha</span>';
     } else {
       const selFD   = getSelMS('ms-fd');
       const selEQ   = getSelMS('ms-eq');
       const selEQTR = getSelMS('ms-eqtr');
-      const ig = INFOGENS.filter(r => {
+      const ig = srcCosecha.filter(r => {
         if (selFD.length   && !selFD.includes(r.fd))     return false;
         if (selEQ.length   && !selEQ.includes(r.eq))     return false;
         if (selEQTR.length && !selEQTR.includes(r.eqtr)) return false;
         return true;
       });
-      const withAgoste  = ig.filter(r=>r.diasAgoste!=null).sort((a,b)=>a.diasAgoste-b.diasAgoste);
-      const withCosecha = ig.filter(r=>r.fCosecha).sort((a,b)=>a.fCosecha.localeCompare(b.fCosecha));
+      // Calcular diasAgoste desde agosteFecha (HARVEST) o fAgosteDate (INFOGENS)
+      const today = new Date(); today.setHours(0,0,0,0);
+      ig.forEach(r => {
+        const aDate = r.agosteFecha || (r.fAgoste ? new Date(r.fAgoste) : null);
+        if (aDate && !isNaN(aDate)) {
+          const d = new Date(aDate); d.setHours(0,0,0,0);
+          r._diasAgosteCalc = Math.ceil((d - today) / (1000*60*60*24));
+          r._fAgosteCalc    = d.toISOString().slice(0,10);
+        } else {
+          r._diasAgosteCalc = null;
+          r._fAgosteCalc    = r.fAgoste || null;
+        }
+      });
+      const withAgoste  = ig.filter(r=>r._diasAgosteCalc!=null).sort((a,b)=>a._diasAgosteCalc-b._diasAgosteCalc);
+      const withCosecha = ig.filter(r=>r.fCosecha||r.fCosechaStr).sort((a,b)=>String(a.fCosecha||a.fCosechaStr||'').localeCompare(String(b.fCosecha||b.fCosechaStr||'')));
       const nextAgoste  = withAgoste[0];
       const nextCosecha = withCosecha[0];
-      const agoPend     = withAgoste.filter(r=>r.diasAgoste>0).length;
-      const agoVenc     = withAgoste.filter(r=>r.diasAgoste<=0).length;
+      const agoPend     = withAgoste.filter(r=>r._diasAgosteCalc>0).length;
+      const agoVenc     = withAgoste.filter(r=>r._diasAgosteCalc<=0).length;
 
       cosEl.innerHTML = `
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:.4rem .7rem;font-size:.75rem">
-          <div><span style="color:var(--text3)">Próx. cosecha:</span> <b style="color:var(--green)">${nextCosecha?nextCosecha.fCosecha:'—'}</b></div>
+          <div><span style="color:var(--text3)">Próx. cosecha:</span> <b style="color:var(--green)">${nextCosecha?(nextCosecha.fCosechaStr||nextCosecha.fCosecha||'—'):'—'}</b></div>
           <div><span style="color:var(--text3)">EQ-TR:</span> <b>${nextCosecha?nextCosecha.eqtr:'—'}</b></div>
-          <div><span style="color:var(--text3)">Próx. agoste:</span> <b style="color:var(--amber)">${nextAgoste?nextAgoste.fAgoste:'—'}</b></div>
-          <div><span style="color:var(--text3)">Días rest.:</span> <b style="color:${nextAgoste&&nextAgoste.diasAgoste>0?'var(--amber)':'var(--red)'}">${nextAgoste?(nextAgoste.diasAgoste>0?'Faltan '+nextAgoste.diasAgoste+' d':'Agostado'):'—'}</b></div>
-          <div><span style="color:var(--text3)">Pendientes:</span> <b style="color:var(--amber)">${agoPend}</b></div>
-          <div><span style="color:var(--text3)">Agostados:</span> <b style="color:var(--red)">${agoVenc}</b></div>
+          <div><span style="color:var(--text3)">F.Agoste:</span> <b style="color:var(--amber)">${nextAgoste?nextAgoste._fAgosteCalc:'—'}</b></div>
+          <div><span style="color:var(--text3)">Días rest. riego:</span> <b style="color:${nextAgoste&&nextAgoste._diasAgosteCalc>0?'var(--amber)':'var(--red)'}">${nextAgoste?(nextAgoste._diasAgosteCalc>0?nextAgoste._diasAgosteCalc+' días':'Agoste'):'—'}</b></div>
+          <div><span style="color:var(--text3)">Situación:</span>
+            <b><span style="color:var(--green)">${agoPend} Regando</span> / <span style="color:var(--red)">${agoVenc} Agoste</span></b>
+          </div>
         </div>`;
     }
   }
