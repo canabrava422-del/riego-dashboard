@@ -6572,6 +6572,7 @@ function mapearFertilizacion(f) {
 function mapearInfoParcelas(f) {
   if (!f['EQ']||!f['TR']) return null;
   return {
+    eq_tr: (f['EQ']||'') + (f['TR']||''),
     eq: f['EQ'], id_parcela: f['ID']||null, tabela: f['TABELA']||null,
     mf: f['MF']||null, fd: f['FD']||null, tr: f['TR'],
     par: f['PAR']||null, safra: f['Safra']||null,
@@ -6607,10 +6608,10 @@ async function sincronizarConSupabase(workbookData, hojasSeleccionadas, onProgre
   const res = {};
   const map = {
     Hoja1: ['riego',          mapearRiego,          'aid'],
-    Hoja2: ['cosecha',        mapearCosecha,        'eq_tr,anio_cosecha,mes_cosecha'],
-    Hoja3: ['programa_riego', mapearProgramaRiego,  'eq_tr,anio'],
-    Hoja4: ['caudales',       mapearCaudales,       'eq_tr,safra'],
-    Hoja5: ['info_parcelas',  mapearInfoParcelas,   'eq,tr,par,safra'],
+    Hoja2: ['cosecha',        mapearCosecha,        'eq_tr,mf,fd'],
+    Hoja3: ['programa_riego', mapearProgramaRiego,  'eq_tr,anio,fd'],
+    Hoja4: ['caudales',       mapearCaudales,       'eq_tr,fd,safra'],
+    Hoja5: ['info_parcelas',  mapearInfoParcelas,   'eq_tr,fd,safra'],
     Hoja6: ['humedad',        mapearHumedad,        'aid'],
     Hoja7: ['fertilizacion',  mapearFertilizacion,  'eq_tr,fd,clase,npk'],
     Hoja8: ['biometria',      mapearBiometria,      'aid'],
