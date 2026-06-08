@@ -6637,6 +6637,18 @@ function mapearInfoParcelas(f) {
   };
 }
 
+
+// Elimina filas duplicadas basándose en la clave única
+function deduplicar(filas, campos) {
+  const vistas = new Set();
+  return filas.filter(f => {
+    const clave = campos.map(c => String(f[c] ?? '')).join('|');
+    if (vistas.has(clave)) return false;
+    vistas.add(clave);
+    return true;
+  });
+}
+
 // ── UPSERT POR LOTES ─────────────────────────────────────────
 async function upsertLotes(tabla, filas, claveConflicto, onProgress) {
   const LOTE = 500;
@@ -6668,7 +6680,11 @@ async function sincronizarConSupabase(workbookData, hojasSeleccionadas, onProgre
     if (!map[hoja] || !workbookData[hoja]) continue;
     const [tabla, mapper, clave] = map[hoja];
     onProgress && onProgress('Procesando ' + tabla + '...', 0);
-    const filas = workbookData[hoja].map(mapper).filter(f => f !== null);
+    const camposClave = clave.split(',');
+    const filas = deduplicar(
+      workbookData[hoja].map(mapper).filter(f => f !== null),
+      camposClave
+    );
     res[tabla] = await upsertLotes(tabla, filas, clave, onProgress);
   }
   onProgress && onProgress('Sincronizacion completa', 100);
