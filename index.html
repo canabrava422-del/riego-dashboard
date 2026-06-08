@@ -6420,19 +6420,44 @@ const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 const supabaseRead  = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const supabaseWrite = supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-// ── CACHE LOCAL ──────────────────────────────────────────────
-function guardarCacheLocal(datos) {
-  try {
-    localStorage.setItem('riego_cache', JSON.stringify(datos));
-    localStorage.setItem('riego_cache_ts', new Date().toISOString());
-  } catch(e) { console.warn('[Cache] Error:', e.message); }
+// ── CACHE LOCAL (IndexedDB — sin límite de tamaño) ──────────
+const IDB_NAME = 'riego_cache_db';
+const IDB_STORE = 'cache';
+
+function abrirIDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(IDB_STORE);
+    req.onsuccess = e => resolve(e.target.result);
+    req.onerror   = e => reject(e.target.error);
+  });
 }
-function leerCacheLocal() {
+
+async function guardarCacheLocal(datos) {
   try {
-    const raw = localStorage.getItem('riego_cache');
-    const ts  = localStorage.getItem('riego_cache_ts');
-    if (!raw) return null;
-    return { datos: JSON.parse(raw), timestamp: ts };
+    const db = await abrirIDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    const st = tx.objectStore(IDB_STORE);
+    st.put(datos, 'datos');
+    st.put(new Date().toISOString(), 'timestamp');
+    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
+    console.log('[Cache] Guardado en IndexedDB OK');
+  } catch(e) { console.warn('[Cache] Error IndexedDB:', e.message); }
+}
+
+async function leerCacheLocal() {
+  try {
+    const db = await abrirIDB();
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const st = tx.objectStore(IDB_STORE);
+    const datos = await new Promise((res, rej) => {
+      const r = st.get('datos'); r.onsuccess = () => res(r.result); r.onerror = rej;
+    });
+    const timestamp = await new Promise((res, rej) => {
+      const r = st.get('timestamp'); r.onsuccess = () => res(r.result); r.onerror = rej;
+    });
+    if (!datos) return null;
+    return { datos, timestamp };
   } catch(e) { return null; }
 }
 
@@ -6642,7 +6667,8 @@ function mapearInfoParcelas(f) {
 function deduplicar(filas, campos) {
   const vistas = new Set();
   return filas.filter(f => {
-    const clave = campos.map(c => String(f[c] ?? '')).join('|');
+    // Normalizar a string lowercase para comparar sin importar mayúsculas
+    const clave = campos.map(c => String(f[c] ?? '').toLowerCase().trim()).join('|');
     if (vistas.has(clave)) return false;
     vistas.add(clave);
     return true;
@@ -6859,7 +6885,7 @@ async function cargarDatosDesdeSupabase() {
     }
 
     // Guardar en cache local para uso offline
-    guardarCacheLocal(datos);
+    await guardarCacheLocal(datos);
 
     if (loadEl) loadEl.style.display = 'none';
 
@@ -6870,7 +6896,7 @@ async function cargarDatosDesdeSupabase() {
     if (loadEl) loadEl.style.display = 'none';
     console.error('[Login] Error descargando datos:', err.message);
     // Intentar con cache local si hay
-    const cache = leerCacheLocal();
+    const cache = await leerCacheLocal();
     if (cache) {
       mostrarBannerOffline(cache.timestamp);
       alimentarDashboard(cache.datos);
