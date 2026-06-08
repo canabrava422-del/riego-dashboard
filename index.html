@@ -6420,14 +6420,18 @@ const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzd
 const supabaseRead  = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const supabaseWrite = supabase.createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-// ── CACHE LOCAL (usa el IndexedDB existente de la app) ──────
+// ── CACHE LOCAL (IndexedDB con key separada para datos Supabase) ──
+const SUPA_CACHE_KEY = 'supabase-datos';
+
 async function guardarCacheLocal(datos) {
   try {
-    await saveFileToIDB(
-      new TextEncoder().encode(JSON.stringify(datos)).buffer,
-      '__supabase_cache__'
-    );
-    localStorage.setItem('riego_cache_ts', new Date().toISOString());
+    const db = await openIDB();
+    const tx = db.transaction(IDB_STORE, 'readwrite');
+    tx.objectStore(IDB_STORE).put({
+      datos: datos,
+      timestamp: new Date().toISOString()
+    }, SUPA_CACHE_KEY);
+    await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; });
     console.log('[Cache] Guardado OK');
   } catch(e) {
     console.warn('[Cache] Error guardando:', e.message);
@@ -6436,11 +6440,15 @@ async function guardarCacheLocal(datos) {
 
 async function leerCacheLocal() {
   try {
-    const ts = localStorage.getItem('riego_cache_ts');
-    const cached = await loadFileFromIDB();
-    if (!cached || cached.name !== '__supabase_cache__') return null;
-    const texto = new TextDecoder().decode(cached.buffer);
-    return { datos: JSON.parse(texto), timestamp: ts };
+    const db = await openIDB();
+    const tx = db.transaction(IDB_STORE, 'readonly');
+    const req = tx.objectStore(IDB_STORE).get(SUPA_CACHE_KEY);
+    const result = await new Promise((res, rej) => {
+      req.onsuccess = () => res(req.result || null);
+      req.onerror   = () => rej(req.error);
+    });
+    if (!result) return null;
+    return { datos: result.datos, timestamp: result.timestamp };
   } catch(e) { return null; }
 }
 
