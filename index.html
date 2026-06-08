@@ -6437,6 +6437,30 @@ function leerCacheLocal() {
 }
 
 // ── MAPEO DE DATOS ───────────────────────────────────────────
+
+// Extrae HH:MM:SS de un valor de hora que viene de Excel
+function extraerHora(val) {
+  if (!val) return null;
+  if (typeof val === 'string') {
+    // Si ya es string tipo "05:08:36", devolverlo directo
+    if (/^\d{2}:\d{2}/.test(val)) return val.substring(0, 8);
+    // Si es ISO string, extraer la parte de hora
+    if (val.includes('T')) return val.split('T')[1].substring(0, 8);
+  }
+  if (val instanceof Date) {
+    return val.toTimeString().substring(0, 8);
+  }
+  // Número decimal de Excel (fracción del día)
+  if (typeof val === 'number') {
+    const totalSecs = Math.round(val * 86400);
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+  return null;
+}
+
 function mapearRiego(f) {
   if (!f['EQ-TR'] || !f['Fecha'] || !f['AID']) return null;
   return {
@@ -6445,7 +6469,7 @@ function mapearRiego(f) {
     fd: f['FD']||null, eq: f['EQ']||null, tr: f['TR']||null,
     par: f['PAR']||null, safra: f['Safra']||null, area: f['Area']||null,
     fecha: f['Fecha'] ? new Date(f['Fecha']).toISOString().split('T')[0] : null,
-    hora: f['Hora']||null,
+    hora: extraerHora(f['Hora']),
     vol_planificado_m3: f['VOLUMEN DE RIEGO PLANIFICADO (M3)']||null,
     vol_programado_m3:  f['VOLUMEN DE RIEGO PROGRAMADO (M3)']||null,
     vol_realizado_m3:   f['VOLUMEN DE RIEGO REALIZADO (M3)']||null,
@@ -6480,13 +6504,13 @@ function mapearHumedad(f) {
     fd: f['FD']||null, eq: f['EQ']||null, tr: f['TR']||null,
     par: String(f['PAR']||''), safra: f['Safra']||null, area: f['Area']||null,
     fecha: f['Fecha'] ? new Date(f['Fecha']).toISOString().split('T')[0] : null,
-    hora: f['Hora']||null,
+    hora: extraerHora(f['Hora']),
     contenido_humedad_pct: f['Contenido de humedad (%)']||null,
     temperatura_c: f['Temperatura (\u00b0C)']||null, ce_ms_cm: f['CE (ms/cm)']||null,
     spad: f['Spad (\u00b0)']||null,
     fecha_ultimo_riego: f['Fecha \u00faltimo riego'] ? new Date(f['Fecha \u00faltimo riego']).toISOString().split('T')[0] : null,
-    hora_ultimo_riego_inicio: f['Hora \u00faltimo_riego_Inicio']||null,
-    hora_ultimo_riego_fin: f['Hora \u00faltimo_riego_Fin']||null,
+    hora_ultimo_riego_inicio: extraerHora(f['Hora \u00faltimo_riego_Inicio']),
+    hora_ultimo_riego_fin: extraerHora(f['Hora \u00faltimo_riego_Fin']),
     evaluador: f['Evaluador']||null, ana: f['Ana']||null,
     analisis: f['Analisis']||null, obs: f['Obs']||null,
   };
@@ -6498,7 +6522,7 @@ function mapearBiometria(f) {
     fd: f['FD']||null, eq: f['EQ']||null, tr: f['TR']||null,
     par: String(f['PAR']||''), safra: f['Safra']||null, area: f['Area']||null,
     fecha: f['Fecha'] ? new Date(f['Fecha']).toISOString().split('T')[0] : null,
-    hora: f['Hora']||null,
+    hora: extraerHora(f['Hora']),
     punto_eval_nax: f['Punto de eval. (NAX)']||null,
     n_tallos_tot_eval: f['N\u00b0 Tallos tot eval']||null,
     mts_lineales_tot: f['Mts Lineales tot']||null, tallos_ml: f['Tallos / ML']||null,
