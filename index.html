@@ -6920,37 +6920,53 @@ function alimentarDashboard(datos) {
   if (!datos) { console.error('[Dashboard] datos es undefined'); mostrarLogin(); return; }
   // Mapear datos de Supabase a las variables globales de la app
   if (datos.riego && datos.riego.length) {
-    RAW = datos.riego.map(r => ({
-      semana: r.semana, 'EQ-TR': r.eq_tr, AID: r.aid,
-      MF: r.mf, FD: r.fd, EQ: r.eq, TR: r.tr, PAR: r.par,
-      Safra: r.safra, Area: r.area, Fecha: r.fecha ? new Date(r.fecha) : null,
-      Hora: r.hora,
-      'VOLUMEN DE RIEGO PLANIFICADO (M3)':    r.vol_planificado_m3,
-      'VOLUMEN DE RIEGO PROGRAMADO (M3)':     r.vol_programado_m3,
-      'VOLUMEN DE RIEGO REALIZADO (M3)':      r.vol_realizado_m3,
-      'CANTIDAD DE NITROGENO PLANIFICADO (KG)': r.n_planificado_kg,
-      'CANTIDAD DE NITROGENO PROGRAMADO (KG)':  r.n_programado_kg,
-      'CANTIDAD DE NITROGENO REALIZADO (KG)':   r.n_realizado_kg,
-      'CANTIDAD DE FOSFORO PLANIFICADO (KG)': r.p_planificado_kg,
-      'CANTIDAD DE FOSFORO PROGRAMADO (KG)':  r.p_programado_kg,
-      'CANTIDAD DE FOSFORO REALIZADO (KG)':   r.p_realizado_kg,
-      'CANTIDAD DE POTASIO PLANIFICADO (KG)': r.k_planificado_kg,
-      'CANTIDAD DE POTASIO PROGRAMADO (KG)':  r.k_programado_kg,
-      'CANTIDAD DE POTASIO REALIZADO (KG)':   r.k_realizado_kg,
-      'CANTIDAD DE MICRONUTRIENTES PLANIFICADO (KG)': r.micro_planificado_kg,
-      'CANTIDAD DE MICRONUTRIENTES PROGRAMADO (KG)':  r.micro_programado_kg,
-      'CANTIDAD DE MICRONUTRIENTES REALIZADO (KG)':   r.micro_realizado_kg,
-      'CANTIDAD DE MAGNESIO PLANIFICADO (KG)': r.mg_planificado_kg,
-      'CANTIDAD DE MAGNESIO PROGRAMADO (KG)':  r.mg_programado_kg,
-      'CANTIDAD DE MAGNESIO REALIZADO (KG)':   r.mg_realizado_kg,
-      FALLA: r.falla,
-      'FALLA NITROGENO': r.falla_nitrogeno, 'FALLA FOSFORO': r.falla_fosforo,
-      'FALLA POTASIO': r.falla_potasio, 'FALLA MICRONUTRIENTE': r.falla_micronutriente,
-      'FALLA MAGNESIO': r.falla_magnesio,
-      'AVISO PARADA 1': r.aviso_parada_1, 'AVISO PARADA 2': r.aviso_parada_2,
-      'AVISO PARADA 3': r.aviso_parada_3,
-      Ana: r.ana, Analisis: r.analisis, Obs: r.obs,
-    }));
+    RAW = datos.riego.map(r => {
+      const eqtr = (r.eq_tr||'').toString().trim();
+      const trMatch = eqtr.match(/(TR\d+)$/i);
+      const tr = trMatch ? trMatch[1].toUpperCase() : eqtr;
+      const fecha = r.fecha ? new Date(r.fecha) : null;
+      return {
+        semana: r.semana,
+        eq:     (r.eq||'').toString().trim(),
+        eqtr,
+        tr,
+        fd:     (r.fd||'').toString().trim(),
+        fecha,
+        fechaStr: r.fecha ? r.fecha.slice(0,10) : null,
+        prog:   r.vol_programado_m3 || 0,
+        real:   r.vol_realizado_m3  || 0,
+        falla:  r.falla ? (r.falla+'').trim() : null,
+        // Campos originales también para compatibilidad
+        'EQ-TR': r.eq_tr, AID: r.aid,
+        MF: r.mf, FD: r.fd, EQ: r.eq, TR: tr, PAR: r.par,
+        Safra: r.safra, Area: r.area, Fecha: fecha, Hora: r.hora,
+        'VOLUMEN DE RIEGO PLANIFICADO (M3)': r.vol_planificado_m3,
+        'VOLUMEN DE RIEGO PROGRAMADO (M3)':  r.vol_programado_m3,
+        'VOLUMEN DE RIEGO REALIZADO (M3)':   r.vol_realizado_m3,
+        'CANTIDAD DE NITROGENO PLANIFICADO (KG)': r.n_planificado_kg,
+        'CANTIDAD DE NITROGENO PROGRAMADO (KG)':  r.n_programado_kg,
+        'CANTIDAD DE NITROGENO REALIZADO (KG)':   r.n_realizado_kg,
+        'CANTIDAD DE FOSFORO PLANIFICADO (KG)': r.p_planificado_kg,
+        'CANTIDAD DE FOSFORO PROGRAMADO (KG)':  r.p_programado_kg,
+        'CANTIDAD DE FOSFORO REALIZADO (KG)':   r.p_realizado_kg,
+        'CANTIDAD DE POTASIO PLANIFICADO (KG)': r.k_planificado_kg,
+        'CANTIDAD DE POTASIO PROGRAMADO (KG)':  r.k_programado_kg,
+        'CANTIDAD DE POTASIO REALIZADO (KG)':   r.k_realizado_kg,
+        'CANTIDAD DE MICRONUTRIENTES PLANIFICADO (KG)': r.micro_planificado_kg,
+        'CANTIDAD DE MICRONUTRIENTES PROGRAMADO (KG)':  r.micro_programado_kg,
+        'CANTIDAD DE MICRONUTRIENTES REALIZADO (KG)':   r.micro_realizado_kg,
+        'CANTIDAD DE MAGNESIO PLANIFICADO (KG)': r.mg_planificado_kg,
+        'CANTIDAD DE MAGNESIO PROGRAMADO (KG)':  r.mg_programado_kg,
+        'CANTIDAD DE MAGNESIO REALIZADO (KG)':   r.mg_realizado_kg,
+        FALLA: r.falla,
+        'FALLA NITROGENO': r.falla_nitrogeno, 'FALLA FOSFORO': r.falla_fosforo,
+        'FALLA POTASIO': r.falla_potasio, 'FALLA MICRONUTRIENTE': r.falla_micronutriente,
+        'FALLA MAGNESIO': r.falla_magnesio,
+        'AVISO PARADA 1': r.aviso_parada_1, 'AVISO PARADA 2': r.aviso_parada_2,
+        'AVISO PARADA 3': r.aviso_parada_3,
+        Ana: r.ana, Analisis: r.analisis, Obs: r.obs,
+      };
+    }).filter(r => r.eq);
   }
   if (datos.humedad)       HUMEDAD  = datos.humedad;
   if (datos.biometria)     BIOMTRIA = datos.biometria;
