@@ -542,6 +542,12 @@ canvas{display:block;background:var(--surface);border-radius:4px}
   z-index: 600 !important;
 }
 .eqtr-label::before { display: none !important; }
+
+/* Leaflet tile fix: evita fondo blanco en Chrome/mobile */
+#mapa-leaflet, #mapa-resumen-leaflet {
+  background: #1a1a2e !important;
+}
+
 </style>
 <style id="leaflet-inline-css">
 /* required styles */
@@ -2619,7 +2625,7 @@ function renderSection(id, data) {
   if(id==='humedad')     renderHumedad();
   if(id==='fertil')      renderFertil();
   if(id==='biometria')   renderBiometria();
-  if(id==='mapa')        renderMapa();
+  if(id==='mapa')        { renderMapa(); setTimeout(()=>{ if(_map) _map.invalidateSize(); if(_mapR) _mapR.invalidateSize(); }, 200); }
 }
 
 // ═══════════════════════════════════════════════
@@ -5726,13 +5732,18 @@ function renderMapa() {
       const cLat = allLats.reduce((a,b)=>a+b,0)/allLats.length;
       const cLon = allLons.reduce((a,b)=>a+b,0)/allLons.length;
 
-      _map = L.map('mapa-leaflet', { zoomControl:true, attributionControl:true }).setView([cLat, cLon], 14);
+      _map = L.map('mapa-leaflet', {
+        zoomControl:true, attributionControl:true,
+        preferCanvas: false,
+        renderer: L.svg(),
+      }).setView([cLat, cLon], 14);
+      setTimeout(() => { _map.invalidateSize(); }, 300);
 
       // Satellite (primary) + OSM (fallback)
       const esriSatM = L.tileLayer(
-        'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-        { attribution:'Google Satellite', maxZoom:21, subdomains:['0','1','2','3'],
-          tileSize:256, keepBuffer:4, updateWhenIdle:false }
+        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { attribution:'Esri', maxZoom:19, crossOrigin: true,
+          keepBuffer:8, updateWhenIdle:false, updateWhenZooming:false }
       ).addTo(_map);
       L.control.layers(
         { '🛰 Satélite': esriSatM,
@@ -5839,9 +5850,9 @@ function initMapaResumen() {
 
   // Satellite tiles (primary) + OSM fallback
   const esriSat = L.tileLayer(
-    'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-    { attribution:'Google Satellite', maxZoom:21, subdomains:['0','1','2','3'],
-      tileSize:256, keepBuffer:4, updateWhenIdle:false }
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    { attribution:'Esri', maxZoom:19, crossOrigin: true,
+      keepBuffer:8, updateWhenIdle:false, updateWhenZooming:false }
   ).addTo(_mapR);
   const osmBase = L.tileLayer(
     'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
