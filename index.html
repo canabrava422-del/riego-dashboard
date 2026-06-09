@@ -2518,7 +2518,18 @@ function showSection(id, ev) {
   renderSection(id, getFiltered());
   // Leaflet needs invalidateSize after container becomes visible
   if (id === 'mapa' && _map) {
-    setTimeout(() => { try { _map.invalidateSize(); } catch(e){} }, 150);
+    setTimeout(() => {
+      try {
+        _map.invalidateSize();
+        // Forzar visibilidad del tile pane
+        const tp = document.querySelector('#mapa-leaflet .leaflet-tile-pane');
+        if (tp) tp.style.opacity = '1';
+        _map.eachLayer(l => { if (l._container) l._container.style.opacity = '1'; });
+      } catch(e){}
+    }, 150);
+    setTimeout(() => {
+      try { _map.invalidateSize(true); } catch(e){}
+    }, 500);
   }
 }
 
@@ -5745,6 +5756,10 @@ function renderMapa() {
         { attribution:'Esri', maxZoom:19, crossOrigin: true,
           keepBuffer:8, updateWhenIdle:false, updateWhenZooming:false }
       ).addTo(_map);
+      esriSatM.on('load', () => {
+        const tp = document.querySelector('#mapa-leaflet .leaflet-tile-pane');
+        if (tp) tp.style.cssText += ';opacity:1!important';
+      });
       L.control.layers(
         { '🛰 Satélite': esriSatM,
           '🗺 Mapa OSM': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19}) },
