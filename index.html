@@ -1958,12 +1958,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <button onclick="centerGPS()" style="background:var(--blue);color:#0a0f1e;border:none;
           border-radius:8px;padding:.6rem 1rem;font-size:.8rem;font-weight:600;cursor:pointer;
           font-family:var(--sans);white-space:nowrap">📍 Centrar GPS</button>
-        <button onclick="tomarFoto()" id="btn-foto" style="background:var(--surface2);color:var(--text);
-          border:1.5px solid var(--border2);border-radius:8px;padding:.6rem 1rem;font-size:.8rem;
-          font-weight:600;cursor:pointer;font-family:var(--sans);white-space:nowrap">📷 Foto</button>
-        <button onclick="verFotos()" id="btn-ver-fotos" style="background:var(--surface2);color:var(--text);
-          border:1.5px solid var(--border2);border-radius:8px;padding:.6rem 1rem;font-size:.8rem;
-          font-weight:600;cursor:pointer;font-family:var(--sans);white-space:nowrap">🖼 Ver fotos</button>
+
+      </div>
+
+      <!-- Botones de foto — siempre visibles -->
+      <div style="display:flex;gap:.6rem;margin-bottom:.7rem;flex-wrap:wrap">
+        <button onclick="tomarFoto()" id="btn-foto"
+          style="flex:1;background:var(--surface2);color:var(--text);
+            border:1.5px solid var(--border2);border-radius:8px;
+            padding:.65rem 1rem;font-size:.85rem;font-weight:600;
+            cursor:pointer;font-family:var(--sans);text-align:center">
+          📷 Tomar foto
+        </button>
+        <button onclick="verFotos()" id="btn-ver-fotos"
+          style="flex:1;background:var(--surface2);color:var(--text);
+            border:1.5px solid var(--border2);border-radius:8px;
+            padding:.65rem 1rem;font-size:.85rem;font-weight:600;
+            cursor:pointer;font-family:var(--sans);text-align:center">
+          🖼 Ver fotos
+        </button>
       </div>
 
       <!-- Input cámara oculto -->
@@ -4272,7 +4285,7 @@ try {
 const IDB_NAME    = 'riego-dashboard';
 const IDB_STORE   = 'excel-cache';
 const IDB_KEY     = 'last-file';
-const IDB_VERSION = 1;
+const IDB_VERSION = 2;
 
 function openIDB() {
   return new Promise((resolve, reject) => {
@@ -4281,6 +4294,11 @@ function openIDB() {
       const db = e.target.result;
       if (!db.objectStoreNames.contains(IDB_STORE)) {
         db.createObjectStore(IDB_STORE);
+      }
+      if (!db.objectStoreNames.contains('fotos-campo')) {
+        const fs = db.createObjectStore('fotos-campo', { keyPath: 'id', autoIncrement: true });
+        fs.createIndex('eqtr', 'eqtr', { unique: false });
+        fs.createIndex('fecha', 'fecha', { unique: false });
       }
     };
     req.onsuccess  = e => resolve(e.target.result);
@@ -6508,19 +6526,8 @@ const FOTO_DB_STORE   = 'fotos-campo';
 const FOTO_DB_VERSION = 2;
 
 function abrirFotoDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(FOTO_DB_NAME, FOTO_DB_VERSION);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains(FOTO_DB_STORE)) {
-        const store = db.createObjectStore(FOTO_DB_STORE, { keyPath: 'id', autoIncrement: true });
-        store.createIndex('eqtr', 'eqtr', { unique: false });
-        store.createIndex('fecha', 'fecha', { unique: false });
-      }
-    };
-    req.onsuccess  = e => resolve(e.target.result);
-    req.onerror    = e => reject(e.target.error);
-  });
+  // Reusar el mismo IDB que la app principal
+  return openIDB();
 }
 
 async function tomarFoto() {
