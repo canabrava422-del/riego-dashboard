@@ -1958,6 +1958,43 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <button onclick="centerGPS()" style="background:var(--blue);color:#0a0f1e;border:none;
           border-radius:8px;padding:.6rem 1rem;font-size:.8rem;font-weight:600;cursor:pointer;
           font-family:var(--sans);white-space:nowrap">📍 Centrar GPS</button>
+        <button onclick="tomarFoto()" id="btn-foto" style="background:var(--surface2);color:var(--text);
+          border:1.5px solid var(--border2);border-radius:8px;padding:.6rem 1rem;font-size:.8rem;
+          font-weight:600;cursor:pointer;font-family:var(--sans);white-space:nowrap">📷 Foto</button>
+        <button onclick="verFotos()" id="btn-ver-fotos" style="background:var(--surface2);color:var(--text);
+          border:1.5px solid var(--border2);border-radius:8px;padding:.6rem 1rem;font-size:.8rem;
+          font-weight:600;cursor:pointer;font-family:var(--sans);white-space:nowrap">🖼 Ver fotos</button>
+      </div>
+
+      <!-- Input cámara oculto -->
+      <input type="file" id="foto-input" accept="image/*" capture="environment"
+        style="display:none" onchange="procesarFoto(event)">
+      <!-- Modal galería de fotos -->
+      <div id="fotos-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);
+        z-index:9999;overflow-y:auto;padding:1rem">
+        <div style="max-width:600px;margin:0 auto">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+            <span style="color:#fff;font-size:.9rem;font-weight:600">📷 Fotos de campo</span>
+            <button onclick="document.getElementById('fotos-modal').style.display='none'"
+              style="background:none;border:none;color:#fff;font-size:1.4rem;cursor:pointer">✕</button>
+          </div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.8rem">
+            <select id="foto-filtro-eqtr" onchange="renderGaleria()"
+              style="background:#1e293b;border:1px solid #334155;color:#e2e8f0;
+                border-radius:6px;padding:.35rem .6rem;font-size:.78rem">
+              <option value="">Todos los EQ-TR</option>
+            </select>
+            <button onclick="exportarFotos()" style="background:#1e40af;border:none;color:#fff;
+              border-radius:6px;padding:.35rem .7rem;font-size:.78rem;cursor:pointer">
+              📤 Exportar lista
+            </button>
+            <button onclick="borrarTodasFotos()" style="background:#7f1d1d;border:none;color:#fff;
+              border-radius:6px;padding:.35rem .7rem;font-size:.78rem;cursor:pointer">
+              🗑 Borrar todo
+            </button>
+          </div>
+          <div id="fotos-galeria" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem"></div>
+        </div>
       </div>
 
       <!-- Map container -->
@@ -6460,6 +6497,259 @@ function showSubRiego(id) {
   document.getElementById('riego-btn').style.borderBottomColor = 'var(--blue)';
   showSection(id);
 }
+
+// ══════════════════════════════════════════════════════════
+// MÓDULO DE FOTOS DE CAMPO
+// Guarda fotos con GPS + parcela en IndexedDB
+// ══════════════════════════════════════════════════════════
+
+const FOTO_DB_NAME    = 'riego-dashboard';
+const FOTO_DB_STORE   = 'fotos-campo';
+const FOTO_DB_VERSION = 2;
+
+function abrirFotoDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(FOTO_DB_NAME, FOTO_DB_VERSION);
+    req.onupgradeneeded = e => {
+      const db = e.target.result;
+      if (!db.objectStoreNames.contains(FOTO_DB_STORE)) {
+        const store = db.createObjectStore(FOTO_DB_STORE, { keyPath: 'id', autoIncrement: true });
+        store.createIndex('eqtr', 'eqtr', { unique: false });
+        store.createIndex('fecha', 'fecha', { unique: false });
+      }
+    };
+    req.onsuccess  = e => resolve(e.target.result);
+    req.onerror    = e => reject(e.target.error);
+  });
+}
+
+async function tomarFoto() {
+  // Detectar EQ-TR actual desde GPS o selección manual
+  const eqtrActual = _manualEQTR || _nearestEQTR;
+  if (!eqtrActual) {
+    alert('Activa el GPS primero para que la foto se etiquete con la parcela correcta.');
+    return;
+  }
+  document.getElementById('foto-input').click();
+}
+
+async function procesarFoto(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const btn = document.getElementById('btn-foto');
+  btn.textContent = '⏳ Guardando...';
+  btn.disabled = true;
+
+  try {
+    // Obtener coordenadas GPS actuales
+    const coords = await new Promise((resolve) => {
+      if (_gpsMarker) {
+        const ll = _gpsMarker.getLatLng();
+        resolve({ lat: ll.lat, lon: ll.lng, acc: null });
+      } else if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          p => resolve({ lat: p.coords.latitude, lon: p.coords.longitude, acc: p.coords.accuracy }),
+          () => resolve(null),
+          { timeout: 5000, maximumAge: 10000 }
+        );
+      } else {
+        resolve(null);
+      }
+    });
+
+    // Detectar parcela más cercana
+    const eqtrKey  = (_manualEQTR || _nearestEQTR || '').replace('_HC','');
+    const featMap  = GEO_MAP[_manualEQTR || _nearestEQTR] || GEO_MAP[eqtrKey];
+    const eqtrLbl  = featMap ? featMap.label : eqtrKey;
+
+    // Detectar parcela individual más cercana si hay coords
+    let parcelaLabel = null;
+    if (coords) {
+      let minDist = Infinity;
+      Object.entries(GEO_PARCELAS).forEach(([key, feat]) => {
+        if (feat.parent !== eqtrKey && feat.parent !== (_manualEQTR||'').replace('_HC','')) return;
+        const d = Math.sqrt(Math.pow(feat.lat - coords.lat, 2) + Math.pow(feat.lon - coords.lon, 2));
+        if (d < minDist) { minDist = d; parcelaLabel = feat.label; }
+      });
+    }
+
+    // Detectar FD del EQ-TR
+    const rowsR = RAW.filter(r => r.eqtr === eqtrKey);
+    const fd = rowsR.length ? rowsR[0].fd : null;
+
+    // Convertir imagen a base64
+    const base64 = await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.readAsDataURL(file);
+    });
+
+    // Guardar en IndexedDB
+    const db = await abrirFotoDB();
+    const tx = db.transaction(FOTO_DB_STORE, 'readwrite');
+    const foto = {
+      eqtr:    eqtrKey,
+      eqtrLbl: eqtrLbl,
+      parcela: parcelaLabel,
+      fd:      fd,
+      lat:     coords ? coords.lat : null,
+      lon:     coords ? coords.lon : null,
+      acc:     coords ? coords.acc : null,
+      fecha:   new Date().toISOString(),
+      imagen:  base64,
+      nombre:  file.name,
+    };
+    await new Promise((res, rej) => {
+      const r = tx.objectStore(FOTO_DB_STORE).add(foto);
+      tx.oncomplete = res; tx.onerror = rej;
+    });
+
+    // Confirmar
+    const loc = parcelaLabel || eqtrLbl;
+    btn.textContent = '✓ Guardada';
+    btn.style.borderColor = 'var(--green,#4ade80)';
+    btn.style.color = 'var(--green,#4ade80)';
+    setTimeout(() => {
+      btn.textContent = '📷 Foto';
+      btn.style.borderColor = '';
+      btn.style.color = '';
+      btn.disabled = false;
+    }, 2500);
+
+    // Actualizar contador en botón ver fotos
+    actualizarContadorFotos();
+
+    // Limpiar input
+    document.getElementById('foto-input').value = '';
+
+  } catch(err) {
+    console.error('[Foto]', err);
+    alert('Error al guardar la foto: ' + err.message);
+    btn.textContent = '📷 Foto';
+    btn.disabled = false;
+  }
+}
+
+async function actualizarContadorFotos() {
+  try {
+    const db = await abrirFotoDB();
+    const tx = db.transaction(FOTO_DB_STORE, 'readonly');
+    const count = await new Promise((res, rej) => {
+      const r = tx.objectStore(FOTO_DB_STORE).count();
+      r.onsuccess = () => res(r.result); r.onerror = rej;
+    });
+    const btn = document.getElementById('btn-ver-fotos');
+    if (btn) btn.textContent = count > 0 ? '🖼 Ver fotos (' + count + ')' : '🖼 Ver fotos';
+  } catch(e) {}
+}
+
+async function verFotos() {
+  const modal = document.getElementById('fotos-modal');
+  modal.style.display = 'block';
+  await renderGaleria();
+  // Llenar filtro de EQ-TR
+  try {
+    const db = await abrirFotoDB();
+    const tx = db.transaction(FOTO_DB_STORE, 'readonly');
+    const fotos = await new Promise((res,rej) => {
+      const r = tx.objectStore(FOTO_DB_STORE).getAll();
+      r.onsuccess = () => res(r.result); r.onerror = rej;
+    });
+    const sel = document.getElementById('foto-filtro-eqtr');
+    const eqtrs = [...new Set(fotos.map(f => f.eqtr).filter(Boolean))].sort();
+    sel.innerHTML = '<option value="">Todos los EQ-TR</option>' +
+      eqtrs.map(e => `<option value="${e}">${e}</option>`).join('');
+  } catch(e) {}
+}
+
+async function renderGaleria() {
+  const galeria = document.getElementById('fotos-galeria');
+  const filtroEQTR = document.getElementById('foto-filtro-eqtr').value;
+  galeria.innerHTML = '<div style="color:#94a3b8;font-size:.8rem">Cargando...</div>';
+  try {
+    const db = await abrirFotoDB();
+    const tx = db.transaction(FOTO_DB_STORE, 'readonly');
+    let fotos = await new Promise((res,rej) => {
+      const r = tx.objectStore(FOTO_DB_STORE).getAll();
+      r.onsuccess = () => res(r.result); r.onerror = rej;
+    });
+    fotos.sort((a,b) => b.fecha.localeCompare(a.fecha)); // más reciente primero
+    if (filtroEQTR) fotos = fotos.filter(f => f.eqtr === filtroEQTR);
+
+    if (!fotos.length) {
+      galeria.innerHTML = '<div style="color:#94a3b8;font-size:.8rem;grid-column:span 2">Sin fotos guardadas</div>';
+      return;
+    }
+
+    galeria.innerHTML = fotos.map(f => {
+      const fecha = new Date(f.fecha);
+      const fechaStr = fecha.toLocaleDateString('es-PE') + ' ' + fecha.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+      return `
+        <div style="background:#1e293b;border-radius:10px;overflow:hidden;position:relative">
+          <img src="${f.imagen}" style="width:100%;height:140px;object-fit:cover;display:block"
+            onclick="this.style.height=this.style.height==='140px'?'auto':'140px'">
+          <div style="padding:.5rem .6rem">
+            <div style="font-size:.78rem;font-weight:600;color:#e2e8f0">${f.parcela || f.eqtrLbl || f.eqtr}</div>
+            ${f.fd ? `<div style="font-size:.68rem;color:#3b82f6">${f.fd}</div>` : ''}
+            <div style="font-size:.67rem;color:#64748b;margin-top:.2rem">${fechaStr}</div>
+            ${f.lat ? `<div style="font-size:.65rem;color:#475569">${f.lat.toFixed(5)}, ${f.lon.toFixed(5)}</div>` : ''}
+          </div>
+          <button onclick="borrarFoto(${f.id})" style="position:absolute;top:.35rem;right:.35rem;
+            background:rgba(0,0,0,.6);border:none;color:#f87171;border-radius:50%;
+            width:24px;height:24px;font-size:.75rem;cursor:pointer;line-height:24px;text-align:center">✕</button>
+        </div>`;
+    }).join('');
+  } catch(err) {
+    galeria.innerHTML = '<div style="color:#f87171">Error al cargar fotos</div>';
+  }
+}
+
+async function borrarFoto(id) {
+  if (!confirm('¿Borrar esta foto?')) return;
+  const db = await abrirFotoDB();
+  const tx = db.transaction(FOTO_DB_STORE, 'readwrite');
+  tx.objectStore(FOTO_DB_STORE).delete(id);
+  await new Promise((res,rej) => { tx.oncomplete=res; tx.onerror=rej; });
+  await renderGaleria();
+  actualizarContadorFotos();
+}
+
+async function borrarTodasFotos() {
+  if (!confirm('¿Borrar TODAS las fotos? Esta acción no se puede deshacer.')) return;
+  const db = await abrirFotoDB();
+  const tx = db.transaction(FOTO_DB_STORE, 'readwrite');
+  tx.objectStore(FOTO_DB_STORE).clear();
+  await new Promise((res,rej) => { tx.oncomplete=res; tx.onerror=rej; });
+  await renderGaleria();
+  actualizarContadorFotos();
+}
+
+async function exportarFotos() {
+  const db = await abrirFotoDB();
+  const tx = db.transaction(FOTO_DB_STORE, 'readonly');
+  const fotos = await new Promise((res,rej) => {
+    const r = tx.objectStore(FOTO_DB_STORE).getAll();
+    r.onsuccess = () => res(r.result); r.onerror = rej;
+  });
+  const csv = ['EQ-TR,Parcela,FD,Fecha,Latitud,Longitud,Precisión(m)']
+    .concat(fotos.map(f => [
+      f.eqtr||'', f.parcela||f.eqtrLbl||'', f.fd||'',
+      new Date(f.fecha).toLocaleString('es-PE'),
+      f.lat||'', f.lon||'', f.acc ? Math.round(f.acc) : ''
+    ].join(','))).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url; a.download = 'fotos_campo.csv'; a.click();
+  URL.revokeObjectURL(url);
+}
+
+// Inicializar contador al cargar
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(actualizarContadorFotos, 1000);
+});
+
 </script>
 </body>
 </html>
