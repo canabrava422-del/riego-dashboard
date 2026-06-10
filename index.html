@@ -5117,7 +5117,7 @@ function renderResumenSummaries(riegoData) {
       };
       const fCol=v=>v==null?'var(--text3)':v>=100?(DARK_MODE?'#4ade80':'#15803d'):v>=75?(DARK_MODE?'#38bdf8':'#0369a1'):v>=50?(DARK_MODE?'#fbbf24':'#b45309'):(DARK_MODE?'#fb923c':'#ea580c');
       fertEl.innerHTML=`<div style="display:flex;flex-direction:column;gap:.35rem;font-size:.75rem">
-        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">EQ-TR</span><b>${nEQ}</b></div>
+        <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">EQ-TR</span><b style="color:var(--blue)">${(function(){const u=[...new Set(filt.map(r=>r.eqtr).filter(Boolean))];return u.length===0?'—':u.length===1?u[0]:'Varios ('+u.length+')';}())}</b></div>
         <div style="display:flex;justify-content:space-between"><span style="color:var(--text3)">% Avance prom.</span><b style="color:${fCol(avg)}">${avg!=null?avg+'%':'—'}</b></div>
         <div style="display:flex;justify-content:space-between;align-items:center">
           <span style="color:var(--text3)">Pendiente por elemento</span>
@@ -5400,10 +5400,9 @@ function renderFertil() {
   const totalPend = totalProg - totalReal;
   const nEQTR = [...new Set(stats.map(s=>s.eqtr))].size;
   document.getElementById('fert-kpis').innerHTML = `
-    <div class="kpi kc1"><div class="kpi-val" style="color:var(--blue);font-size:.85rem">${eqtrLabel(filt)}</div><div class="kpi-lbl">EQ-TR</div></div>
+    <div class="kpi kc1"><div class="kpi-val" style="color:var(--blue);font-size:.85rem">${eqtrLabel(filtered)}</div><div class="kpi-lbl">EQ-TR</div></div>
     <div class="kpi kc2"><div class="kpi-val" style="color:${fCol(avgCumpl)}">${avgCumpl!=null?avgCumpl+'%':'—'}</div><div class="kpi-lbl">% Avance promedio (${npkLabel})</div></div>
     <div class="kpi kc5"><div class="kpi-val" style="color:${DARK_MODE?'#4ade80':'#15803d'}">${nComplete}</div><div class="kpi-lbl">EQ-TR completados</div></div>
-    <div class="kpi kc4"><div class="kpi-val" style="color:${DARK_MODE?'#fbbf24':'#b45309'}">${nPending}</div><div class="kpi-lbl">EQ-TR con pendiente</div></div>
     <div class="kpi kc3"><div class="kpi-val" style="color:${DARK_MODE?'#fb923c':'#ea580c'}">${totalPend.toFixed(0)} und</div><div class="kpi-lbl">Total und. pendientes</div></div>
   `;
 
@@ -6043,29 +6042,40 @@ function showNearbyPicker(distances, fmtDist) {
 
   const isSelected = key => _manualEQTR === key;
 
+  // Detectar FD de cada EQ-TR para mostrar el fundo
+  const getFD = key => {
+    const keyClean = key.replace('_HC','');
+    const row = RAW.find(r => r.eqtr === keyClean);
+    return row ? row.fd : null;
+  };
+
   wrap.innerHTML = `
     <div style="font-size:.7rem;color:var(--text3);margin-bottom:.4rem;font-family:var(--mono);
       text-transform:uppercase;letter-spacing:.05em">
-      📡 EQ-TR cercanos · selecciona uno para filtrar
+      📡 EQ-TR cercanos · toca uno para activar el filtro
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:.4rem">
-      ${distances.map((item,i) => `
+      ${distances.map((item,i) => {
+        const fd = getFD(item.key);
+        return `
         <button onclick="selectEQTRFromGPS('${item.key}')"
           style="display:flex;flex-direction:column;align-items:flex-start;
             background:${isSelected(item.key) ? 'var(--blue)' : 'var(--surface2)'};
             color:${isSelected(item.key) ? '#0a0f1e' : 'var(--text)'};
             border:1.5px solid ${isSelected(item.key) ? 'var(--blue)' : 'var(--border2)'};
-            border-radius:8px;padding:.45rem .8rem;cursor:pointer;
-            font-family:var(--sans);text-align:left;min-width:110px;
+            border-radius:8px;padding:.5rem .9rem;cursor:pointer;
+            font-family:var(--sans);text-align:left;min-width:120px;
             -webkit-tap-highlight-color:transparent;transition:all .15s">
-          <span style="font-weight:700;font-size:.8rem">${item.feat.label}</span>
-          <span style="font-size:.66rem;opacity:.75">${fmtDist(item.dist)}</span>
-          ${i===0 && !_manualEQTR ? '<span style="font-size:.6rem;opacity:.7">más cercano</span>' : ''}
-        </button>`).join('')}
+          <span style="font-weight:700;font-size:.85rem">${item.feat.label}</span>
+          ${fd ? `<span style="font-size:.68rem;color:${isSelected(item.key)?'rgba(0,0,0,.6)':'var(--blue)'};font-weight:500">${fd}</span>` : ''}
+          <span style="font-size:.68rem;opacity:.7">${fmtDist(item.dist)}</span>
+          ${i===0 && !_manualEQTR ? '<span style="font-size:.62rem;opacity:.65">⭐ más cercano</span>' : ''}
+        </button>`;
+      }).join('')}
       ${_manualEQTR ? `
         <button onclick="clearGPSSelection()"
           style="background:var(--surface2);border:1.5px dashed var(--border2);
-            color:var(--text3);border-radius:8px;padding:.45rem .8rem;
+            color:var(--text3);border-radius:8px;padding:.5rem .9rem;
             cursor:pointer;font-size:.75rem;font-family:var(--sans);
             -webkit-tap-highlight-color:transparent">
           ✕ Quitar selección
@@ -6076,19 +6086,40 @@ function showNearbyPicker(distances, fmtDist) {
 
 function selectEQTRFromGPS(key) {
   _manualEQTR = key;
+  // Limpiar sufijo _HC para buscar en RAW
+  const keyClean = key.replace('_HC','');
   const feat = GEO_MAP[key];
   const distText = '(seleccionado)';
 
+  // Detectar EQ y FD del EQ-TR seleccionado desde RAW
+  const rowsMatch = RAW.filter(r => r.eqtr === keyClean);
+  const eqDetect = rowsMatch.length ? rowsMatch[0].eq : null;
+  const fdDetect = rowsMatch.length ? rowsMatch[0].fd : null;
+
   setLevel('EQ-TR');
 
+  // Limpiar todos los filtros primero
   ['ms-fd','ms-eq','ms-eqtr','ms-mes','ms-semana'].forEach(id => {
     if (MS[id]) { MS[id].sel = new Set(); renderMS(id, 'Todas'); }
   });
 
+  // Aplicar filtro FD (fundo) automáticamente
+  if (fdDetect && MS['ms-fd']) {
+    const fdKey = [...(MS['ms-fd'].all || [])].find(k => k === fdDetect);
+    if (fdKey) { MS['ms-fd'].sel = new Set([fdKey]); renderMS('ms-fd', 'Todas'); }
+  }
+
+  // Aplicar filtro EQ automáticamente
+  if (eqDetect && MS['ms-eq']) {
+    const eqKey = [...(MS['ms-eq'].all || [])].find(k => k === eqDetect);
+    if (eqKey) { MS['ms-eq'].sel = new Set([eqKey]); renderMS('ms-eq', 'Todas'); }
+  }
+
+  // Aplicar filtro EQ-TR
   if (MS['ms-eqtr']) {
     const msKey = [...(MS['ms-eqtr'].all || [])].find(k =>
-      k === key ||
-      k.replace(/[^A-Z0-9]/gi,'').toUpperCase() === key.replace(/[^A-Z0-9]/gi,'').toUpperCase()
+      k === keyClean ||
+      k.replace(/[^A-Z0-9]/gi,'').toUpperCase() === keyClean.replace(/[^A-Z0-9]/gi,'').toUpperCase()
     );
     if (msKey) {
       MS['ms-eqtr'].sel = new Set([msKey]);
