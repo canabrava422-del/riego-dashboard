@@ -1,5 +1,5 @@
 // ── Riego Dashboard Service Worker ──
-const VERSION = 'v52';
+const VERSION = 'v53';
 const CACHE   = 'riego-' + VERSION;
 
 const ASSETS = [
