@@ -6791,7 +6791,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 const NOTIF_KEY = 'riego_notificaciones';
 
-// Notificaciones base del sistema — solo la más reciente de cada tipo
+// Notificaciones del sistema — solo la más reciente de cada tipo se muestra
 const NOTIF_SISTEMA = [
   {
     id: 'update_v51',
@@ -6799,51 +6799,37 @@ const NOTIF_SISTEMA = [
     titulo: 'Actualización disponible',
     texto: 'Nueva versión con mejoras en el mapa, filtros y detección de fundo por GPS.',
     fecha: '2026-06-10',
-    accion: 'instalar',
   }
 ];
 
-function cargarNotificaciones() {
-  try {
-    const raw = localStorage.getItem(NOTIF_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch(e) { return {}; }
+function cargarEstado() {
+  try { return JSON.parse(localStorage.getItem(NOTIF_KEY) || '{}'); } catch(e) { return {}; }
 }
-
-function guardarNotificaciones(estado) {
-  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(estado)); } catch(e) {}
+function guardarEstado(e) {
+  try { localStorage.setItem(NOTIF_KEY, JSON.stringify(e)); } catch(e) {}
 }
 
 function contarNoLeidas() {
-  const estado = cargarNotificaciones();
-  // Contar actualizaciones SW pendientes + notificaciones sistema no leídas
+  const est = cargarEstado();
   let count = 0;
-
-  // Actualización SW pendiente
-  if (window._swUpdatePending) count++;
-
-  // Notificaciones sistema no leídas (solo la más reciente de actualizacion)
-  const ultimaActualizacion = NOTIF_SISTEMA
+  if (window._swUpdatePending && !est['__sw_update__']) count++;
+  const ultima = NOTIF_SISTEMA
     .filter(n => n.tipo === 'actualizacion')
     .sort((a,b) => b.fecha.localeCompare(a.fecha))[0];
-
-  if (ultimaActualizacion && !estado[ultimaActualizacion.id]) count++;
-
+  if (ultima && !est[ultima.id]) count++;
+  // Otras notificaciones sistema no leídas ni eliminadas
+  NOTIF_SISTEMA.filter(n => n.tipo !== 'actualizacion').forEach(n => {
+    if (!est[n.id] && !est[n.id + '_del']) count++;
+  });
   return count;
 }
 
 function actualizarBadge() {
   const count = contarNoLeidas();
-  ['notif-badge-top'].forEach(id => {
-    const badge = document.getElementById(id);
-    if (!badge) return;
-    if (count > 0) {
-      badge.style.display = 'block';
-      badge.textContent = count;
-    } else {
-      badge.style.display = 'none';
-    }
-  });
+  const badge = document.getElementById('notif-badge-top');
+  if (!badge) return;
+  badge.style.display = count > 0 ? 'block' : 'none';
+  badge.textContent = count;
 }
 
 function abrirNotificaciones() {
@@ -6858,102 +6844,118 @@ function cerrarNotificaciones() {
 }
 
 function renderNotificaciones() {
-  const lista  = document.getElementById('notif-lista');
-  const estado = cargarNotificaciones();
-  const items  = [];
+  const lista = document.getElementById('notif-lista');
+  const est   = cargarEstado();
+  const items = [];
 
-  // ── Actualización SW disponible (siempre primero) ──
-  if (window._swUpdatePending) {
+  // ── Actualización SW pendiente ──
+  if (window._swUpdatePending && !est['__sw_update__']) {
     items.push({
-      id:     'sw_update',
-      tipo:   'actualizacion',
+      id:     '__sw_update__',
       titulo: '🔄 Actualización disponible',
-      texto:  'Hay una nueva versión de la app lista para instalar.',
+      texto:  'Hay una nueva versión de la app lista para instalar. Toca "Actualizar" para aplicarla.',
       leido:  false,
-      accion: () => {
-        if (confirm('¿Instalar la actualización ahora? La página se recargará.')) {
-          if (window._swReg && window._swReg.waiting) {
-            window._swReg.waiting.postMessage({ type: 'SKIP_WAITING' });
-          }
-          cerrarNotificaciones();
-        }
-      },
-      btnTxt: '⬇ Instalar ahora',
+      tipo:   'update',
     });
   }
 
   // ── Notificaciones sistema — solo la más reciente de cada tipo ──
   const porTipo = {};
   NOTIF_SISTEMA.forEach(n => {
-    if (!porTipo[n.tipo] || n.fecha > porTipo[n.tipo].fecha) {
+    if (!porTipo[n.tipo] || n.fecha > porTipo[n.tipo].fecha)
       porTipo[n.tipo] = n;
-    }
   });
-
   Object.values(porTipo).forEach(n => {
+    if (est[n.id + '_del']) return; // eliminada
     if (n.tipo === 'actualizacion' && window._swUpdatePending) return; // ya está arriba
-    items.push({
-      id:    n.id,
-      tipo:  n.tipo,
-      titulo: n.tipo === 'actualizacion' ? '🔄 ' + n.titulo : '📢 ' + n.titulo,
-      texto:  n.texto,
-      fecha:  n.fecha,
-      leido:  !!estado[n.id],
-    });
+    items.push({ ...n, leido: !!est[n.id] });
   });
 
   if (!items.length) {
-    lista.innerHTML = '<div style="color:var(--text3);font-size:.8rem;text-align:center;padding:1rem">Sin notificaciones</div>';
+    lista.innerHTML = '<div style="color:var(--text3);font-size:.8rem;text-align:center;padding:1.5rem">Sin notificaciones</div>';
     return;
   }
 
   lista.innerHTML = items.map(item => `
-    <div style="background:${item.leido ? 'var(--surface)' : 'var(--surface2)'};
-      border:1px solid ${item.leido ? 'var(--border)' : 'var(--blue)'};
+    <div id="notif-item-${item.id}" style="background:${item.leido?'var(--surface)':'var(--surface2)'};
+      border:1px solid ${item.leido?'var(--border)':'var(--blue)'};
       border-radius:10px;padding:.75rem 1rem;position:relative">
-      ${!item.leido ? '<div style="position:absolute;top:.6rem;right:.6rem;width:8px;height:8px;background:var(--blue);border-radius:50%"></div>' : ''}
-      <div style="font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:.25rem">${item.titulo}</div>
+      ${!item.leido ? '<div style="position:absolute;top:.6rem;right:2.2rem;width:8px;height:8px;background:var(--blue);border-radius:50%"></div>' : ''}
+      <button onclick="eliminarNotif('${item.id}')"
+        style="position:absolute;top:.5rem;right:.5rem;background:none;border:none;
+          color:var(--text4);font-size:.85rem;cursor:pointer;padding:.1rem .3rem;
+          border-radius:4px;line-height:1" title="Eliminar">✕</button>
+      <div style="font-size:.82rem;font-weight:600;color:var(--text);margin-bottom:.25rem;padding-right:1.2rem">${item.titulo}</div>
       <div style="font-size:.76rem;color:var(--text3);line-height:1.4">${item.texto}</div>
-      ${item.fecha ? `<div style="font-size:.68rem;color:var(--text4,#475569);margin-top:.3rem">${item.fecha}</div>` : ''}
-      <div style="display:flex;gap:.5rem;margin-top:.6rem">
-        ${item.accion ? `<button onclick="(${item.accion.toString()})()"
-          style="background:var(--blue);color:#0a0f1e;border:none;border-radius:6px;
-            padding:.35rem .8rem;font-size:.75rem;font-weight:600;cursor:pointer">
-          ${item.btnTxt}
-        </button>` : ''}
-        ${!item.leido && !item.accion ? `<button onclick="marcarLeido('${item.id}')"
-          style="background:none;border:1px solid var(--border2);color:var(--text3);
-            border-radius:6px;padding:.3rem .7rem;font-size:.73rem;cursor:pointer">
-          ✓ Marcar leído
-        </button>` : ''}
+      ${item.fecha ? `<div style="font-size:.68rem;color:var(--text4);margin-top:.25rem">${item.fecha}</div>` : ''}
+      <div style="display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap">
+        ${item.tipo === 'update' ? `
+          <button onclick="instalarActualizacion()"
+            style="background:var(--blue);color:#0a0f1e;border:none;border-radius:6px;
+              padding:.4rem .9rem;font-size:.78rem;font-weight:700;cursor:pointer">
+            ⬇ Actualizar ahora
+          </button>
+          <button onclick="eliminarNotif('${item.id}')"
+            style="background:none;border:1px solid var(--border2);color:var(--text3);
+              border-radius:6px;padding:.35rem .7rem;font-size:.75rem;cursor:pointer">
+            Después
+          </button>` : `
+          ${!item.leido ? `<button onclick="marcarLeido('${item.id}')"
+            style="background:none;border:1px solid var(--border2);color:var(--text3);
+              border-radius:6px;padding:.35rem .7rem;font-size:.75rem;cursor:pointer">
+            ✓ Marcar leído
+          </button>` : ''}`}
       </div>
     </div>`).join('');
 }
 
+function instalarActualizacion() {
+  if (window._swReg && window._swReg.waiting) {
+    window._swReg.waiting.postMessage({ type: 'SKIP_WAITING' });
+  }
+  cerrarNotificaciones();
+}
+
 function marcarLeido(id) {
-  const estado = cargarNotificaciones();
-  estado[id] = true;
-  guardarNotificaciones(estado);
+  const est = cargarEstado();
+  est[id] = true;
+  guardarEstado(est);
+  actualizarBadge();
+  renderNotificaciones();
+}
+
+function eliminarNotif(id) {
+  const est = cargarEstado();
+  est[id + '_del'] = true;
+  est[id] = true; // también marcar como leída
+  if (id === '__sw_update__') window._swUpdatePending = false;
+  guardarEstado(est);
   actualizarBadge();
   renderNotificaciones();
 }
 
 function marcarTodasLeidas() {
-  const estado = cargarNotificaciones();
-  NOTIF_SISTEMA.forEach(n => { estado[n.id] = true; });
-  guardarNotificaciones(estado);
+  const est = cargarEstado();
+  NOTIF_SISTEMA.forEach(n => { est[n.id] = true; });
+  est['__sw_update__'] = true;
+  guardarEstado(est);
   actualizarBadge();
   renderNotificaciones();
 }
 
-// Detectar actualización SW disponible sin instalar automáticamente
 function detectarActualizacionSW(reg) {
   const manejar = (worker) => {
     if (!worker) return;
     worker.addEventListener('statechange', () => {
       if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+        // Nueva versión detectada — NO instalar automáticamente
         window._swUpdatePending = true;
         window._swReg = reg;
+        // Limpiar el "eliminado" anterior para que aparezca la nueva notificación
+        const est = cargarEstado();
+        delete est['__sw_update__'];
+        delete est['__sw_update___del'];
+        guardarEstado(est);
         actualizarBadge();
       }
     });
@@ -6966,7 +6968,6 @@ function detectarActualizacionSW(reg) {
   reg.addEventListener('updatefound', () => manejar(reg.installing));
 }
 
-// Inicializar al cargar
 document.addEventListener('DOMContentLoaded', () => {
   setTimeout(actualizarBadge, 500);
 });
