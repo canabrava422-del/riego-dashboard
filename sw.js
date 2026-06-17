@@ -1,11 +1,14 @@
-// ── Riego Dashboard Service Worker ──
-const VERSION = 'v54';
+// ── Agronomir Service Worker ──
+const VERSION = 'v52';
 const CACHE   = 'riego-' + VERSION;
 
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
+  './icon-192.png',
+  './icon-512.png',
+  './icon-192.jpg',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap',
@@ -19,7 +22,7 @@ self.addEventListener('install', e => {
         ASSETS.map(url => cache.add(url).catch(() => null))
       ))
       .then(() => {
-        console.log('[SW] v' + VERSION + ' installed');
+        console.log('[SW] ' + VERSION + ' installed');
         return self.skipWaiting();
       })
   );
@@ -35,7 +38,7 @@ self.addEventListener('activate', e => {
       .then(() => self.clients.claim())
       .then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true }))
       .then(clients => {
-        console.log('[SW] v' + VERSION + ' activo');
+        console.log('[SW] ' + VERSION + ' activo');
         clients.forEach(client =>
           client.postMessage({ type: 'SW_UPDATED', version: VERSION })
         );
@@ -65,7 +68,7 @@ self.addEventListener('fetch', e => {
                  url.pathname.endsWith('/');
 
   if (isHTML) {
-    // HTML: cache-first con actualización en background (stale-while-revalidate)
+    // HTML: cache-first con actualización en background
     e.respondWith(
       caches.open(CACHE).then(cache =>
         cache.match(e.request).then(cached => {
@@ -77,7 +80,6 @@ self.addEventListener('fetch', e => {
               return resp;
             })
             .catch(() => null);
-          // Devolver caché inmediatamente si existe, actualizar en background
           return cached || fetchPromise;
         })
       )
