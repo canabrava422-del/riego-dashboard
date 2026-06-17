@@ -1,14 +1,14 @@
 // ── Agronomir Service Worker ──
-const VERSION = 'v53';
+const VERSION = 'v54';
 const CACHE   = 'riego-' + VERSION;
 
 const ASSETS = [
   './',
   './index.html',
   './manifest.json',
-  './icon-192.png',
-  './icon-512.png',
-  './icon-192.jpg',
+  './icon-agronomir-v2-192.png',
+  './icon-agronomir-v2-512.png',
+  './icon-agronomir-v2.jpg',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap',
