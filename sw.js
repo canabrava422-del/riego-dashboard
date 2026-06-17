@@ -14,7 +14,6 @@ const ASSETS = [
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap',
 ];
 
-// ── INSTALL: cachear assets ──
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
@@ -28,7 +27,6 @@ self.addEventListener('install', e => {
   );
 });
 
-// ── ACTIVATE: limpiar caches viejos ──
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
@@ -46,18 +44,15 @@ self.addEventListener('activate', e => {
   );
 });
 
-// ── SKIP_WAITING ──
 self.addEventListener('message', e => {
   if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
-// ── FETCH: cache-first para todo — funciona offline ──
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
 
   const url = new URL(e.request.url);
 
-  // Ignorar tiles de mapas — no se pueden cachear offline
   if (url.hostname.includes('google.com') ||
       url.hostname.includes('arcgisonline.com') ||
       url.hostname.includes('openstreetmap.org') ||
@@ -68,7 +63,6 @@ self.addEventListener('fetch', e => {
                  url.pathname.endsWith('/');
 
   if (isHTML) {
-    // HTML: cache-first con actualización en background
     e.respondWith(
       caches.open(CACHE).then(cache =>
         cache.match(e.request).then(cached => {
@@ -85,7 +79,6 @@ self.addEventListener('fetch', e => {
       )
     );
   } else {
-    // Todo lo demás: cache-first, fallback a red
     e.respondWith(
       caches.match(e.request).then(cached => {
         if (cached) return cached;
