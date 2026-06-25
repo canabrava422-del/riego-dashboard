@@ -1,5 +1,5 @@
 // ── Agronomir Service Worker ──
-const VERSION = 'v56';
+const VERSION = 'v57';
 const CACHE   = 'riego-' + VERSION;
 
 // Nota: quitamos './' de ASSETS — './index.html' ya cubre la página principal
