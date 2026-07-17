@@ -1,9 +1,7 @@
 // ── Agronomir Service Worker ──
-const VERSION = 'v57';
+const VERSION = 'v55';
 const CACHE   = 'riego-' + VERSION;
 
-// Nota: quitamos './' de ASSETS — './index.html' ya cubre la página principal
-// y evita que GitHub Pages devuelva una respuesta "redirected" que Safari rechaza.
 const ASSETS = [
   './index.html',
   './manifest.json',
@@ -15,11 +13,8 @@ const ASSETS = [
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap',
 ];
 
-// Helper: clona una Response quitando la bandera "redirected",
-// que es la causa del error "response served by serviceworker has redirections" en Safari.
 async function limpiarRedireccion(resp) {
-  if (!resp) return resp;
-  if (!resp.redirected) return resp;
+  if (!resp || !resp.redirected) return resp;
   const body = await resp.clone().blob();
   return new Response(body, {
     status: resp.status,
@@ -28,7 +23,6 @@ async function limpiarRedireccion(resp) {
   });
 }
 
-// ── INSTALL: cachear assets ──
 self.addEventListener('install', e => {
   e.waitUntil(
     caches.open(CACHE)
@@ -38,7 +32,7 @@ self.addEventListener('install', e => {
             const resp = await fetch(url, { redirect: 'follow' });
             const limpio = await limpiarRedireccion(resp);
             await cache.put(url, limpio);
-          } catch (e) { /* ignorar fallos individuales */ }
+          } catch(e) {}
         })
       ))
       .then(() => {
@@ -48,7 +42,6 @@ self.addEventListener('install', e => {
   );
 });
 
-// ── ACTIVATE: limpiar caches viejos ──
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
@@ -56,28 +49,18 @@ self.addEventListener('activate', e => {
         keys.filter(k => k !== CACHE).map(k => caches.delete(k))
       ))
       .then(() => self.clients.claim())
-      .then(() => self.clients.matchAll({ type: 'window', includeUncontrolled: true }))
-      .then(clients => {
-        console.log('[SW] ' + VERSION + ' activo');
-        clients.forEach(client =>
-          client.postMessage({ type: 'SW_UPDATED', version: VERSION })
-        );
-      })
   );
 });
 
-// ── SKIP_WAITING ──
 self.addEventListener('message', e => {
   if (e.data?.type === 'SKIP_WAITING') self.skipWaiting();
 });
 
-// ── FETCH: cache-first para todo — funciona offline ──
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
 
   const url = new URL(e.request.url);
 
-  // Ignorar tiles de mapas — no se pueden cachear offline
   if (url.hostname.includes('google.com') ||
       url.hostname.includes('arcgisonline.com') ||
       url.hostname.includes('openstreetmap.org') ||
@@ -88,7 +71,6 @@ self.addEventListener('fetch', e => {
                  url.pathname.endsWith('/');
 
   if (isHTML) {
-    // HTML: cache-first con actualización en background
     e.respondWith(
       caches.open(CACHE).then(cache =>
         cache.match(e.request).then(cached => {
@@ -106,7 +88,6 @@ self.addEventListener('fetch', e => {
       )
     );
   } else {
-    // Todo lo demás: cache-first, fallback a red
     e.respondWith(
       caches.match(e.request).then(cached => {
         if (cached) return cached;
