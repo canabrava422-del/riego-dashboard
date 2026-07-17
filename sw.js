@@ -1,5 +1,5 @@
 // ── Agronomir Service Worker ──
-const VERSION = 'v65';
+const VERSION = 'v57';
 const CACHE   = 'riego-' + VERSION;
 
 const ASSETS = [
@@ -61,6 +61,14 @@ self.addEventListener('fetch', e => {
 
   const url = new URL(e.request.url);
 
+  // NUNCA cachear el propio SW ni el manifest — deben ir siempre a red
+  if (url.pathname.endsWith('sw.js') ||
+      url.pathname.endsWith('manifest.json')) {
+    e.respondWith(fetch(e.request, { cache: 'no-cache' }).catch(() => new Response('', { status: 503 })));
+    return;
+  }
+
+  // Ignorar tiles de mapas
   if (url.hostname.includes('google.com') ||
       url.hostname.includes('arcgisonline.com') ||
       url.hostname.includes('openstreetmap.org') ||
