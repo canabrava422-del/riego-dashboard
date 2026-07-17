@@ -4126,6 +4126,7 @@ function closeBanner() {
 }
 
 function doUpdate() {
+  window._userRequestedUpdate = true;
   // Tell waiting SW to take control immediately
   if (_newWorker) {
     _newWorker.postMessage({ type: 'SKIP_WAITING' });
@@ -4191,9 +4192,10 @@ if ('serviceWorker' in navigator) {
           }
         });
 
-        // CASE 7: controllerchange = new SW took control → reload
+        // CASE 7: controllerchange = new SW tomó control
+        // Solo recargar si el usuario tocó "Actualizar" (flag _userRequestedUpdate)
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          window.location.reload();
+          if (window._userRequestedUpdate) window.location.reload();
         });
 
         console.log('[PWA] SW registered v' + (reg.active?.scriptURL || ''));
