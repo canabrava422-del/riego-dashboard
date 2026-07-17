@@ -1,5 +1,5 @@
 // ── Agronomir Service Worker ──
-const VERSION = 'v56';
+const VERSION = 'v65';
 const CACHE   = 'riego-' + VERSION;
 
 const ASSETS = [
